@@ -1,27 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化投資試算</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f4f7f6; padding: 15px; }
-        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h2 { color: #002D72; margin: 0 0 15px 0; }
-        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; box-sizing: border-box; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
+        body { font-family: -apple-system, sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
+        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h2 { color: #002D72; margin: 0 0 15px 0; font-size: 20px; }
+        .input-box { background: #f0f2f5; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
+        input { width: 100%; border: none; background: transparent; font-size: 22px; font-weight: bold; color: #002D72; outline: none; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; color: #999; font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; }
+        td { padding: 12px 8px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
         .shares { color: #1DB954; font-weight: bold; text-align: right; }
-        #debug { font-size: 10px; color: #ccc; margin-top: 10px; text-align: center; }
+        #debug { font-size: 10px; color: #ccc; margin-top: 15px; text-align: center; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h2>💰 投資金額試算</h2>
-    <label style="font-size: 12px; color: #666;">投入總額 (TWD)</label>
-    <input type="number" id="budget" value="1000000" oninput="calculate()">
+    <div class="input-box">
+        <label style="font-size: 12px; color: #666;">投入總額 (TWD)</label>
+        <input type="number" id="budget" value="1000000" oninput="calculate()">
+    </div>
 
     <table id="stockTable">
         <thead>
@@ -33,7 +37,7 @@
         </thead>
         <tbody></tbody>
     </table>
-    <div id="debug">正在載入數據...</div>
+    <div id="debug">正在讀取最新行情...</div>
 </div>
 
 <script>
@@ -41,19 +45,21 @@
 
     async function main() {
         try {
-            // 1. 初始化 LIFF (您的 ID)
             await liff.init({ liffId: "2009650617-0XGQdM6J" });
-            
-            // 2. 解析網址中的 data 參數
             const params = new URLSearchParams(window.location.search);
-            const encodedData = params.get('data');
+            const encodedData = params.get('d'); // 讀取簡寫參數 d
 
             if (encodedData) {
-                stocks = JSON.parse(decodeURIComponent(encodedData));
+                // 解碼並將極簡 Key (i, p) 轉回 (id, price)
+                const raw = JSON.parse(decodeURIComponent(encodedData));
+                stocks = raw.map(item => ({
+                    id: item.i,
+                    price: item.p
+                }));
                 document.getElementById('debug').innerText = "數據載入成功";
                 calculate();
             } else {
-                document.getElementById('debug').innerText = "未接收到股票數據";
+                document.getElementById('debug').innerText = "未接收到參數";
             }
         } catch (err) {
             document.getElementById('debug').innerText = "錯誤: " + err.message;
@@ -64,20 +70,17 @@
         const budget = document.getElementById('budget').value || 0;
         const tbody = document.querySelector('#stockTable tbody');
         tbody.innerHTML = "";
-
         const perBudget = budget / stocks.length;
 
         stocks.forEach(s => {
             const shares = Math.floor(perBudget / s.price);
-            const row = `<tr>
+            tbody.innerHTML += `<tr>
                 <td><b>${s.id}</b></td>
                 <td>$${s.price}</td>
                 <td class="shares">${shares.toLocaleString()} 股</td>
             </tr>`;
-            tbody.innerHTML += row;
         });
     }
-
     main();
 </script>
 </body>
