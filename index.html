@@ -3,81 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XQ 同步診斷工具</title>
+    <title>XQ 同步助手</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; background: #f0f2f5; text-align: center; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .btn { display: inline-block; padding: 15px 30px; background: #002D72; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 15px; }
-        .debug-info { text-align: left; background: #333; color: #00ff00; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; overflow-x: auto; }
+        body { font-family: sans-serif; text-align: center; padding: 40px 20px; background: #f8f9fa; }
+        .btn { display: block; width: 100%; padding: 20px; background: #002752; color: white; border: none; border-radius: 10px; font-size: 20px; font-weight: bold; cursor: pointer; text-decoration: none; margin-top: 20px; }
+        .info { color: #666; font-size: 14px; margin-top: 10px; }
     </style>
 </head>
 <body>
-
-    <div class="card">
-        <h2 id="main-status">系統診斷中...</h2>
-        <p id="sub-status">請稍候</p>
-        <a id="manual-link" href="#" class="btn" style="display:none;">強制開啟 XQ (手動)</a>
-    </div>
-
-    <div class="card">
-        <h4>🔍 偵錯資訊 (Debug Info)</h4>
-        <div id="debug-log" class="debug-info">正在讀取網址參數...</div>
-    </div>
+    <h2 id="st">正在讀取清單...</h2>
+    <div id="codes" style="word-break: break-all; color: #1DB954; font-weight: bold;"></div>
+    
+    <button id="mainBtn" class="btn">立即匯入 XQ App</button>
+    <p class="info">若點擊無反應，請確保已安裝 XQ 全球贏家</p>
 
     <script>
-        const log = (msg) => {
-            document.getElementById('debug-log').innerHTML += "<br>> " + msg;
-        };
+        async function main() {
+            await liff.init({ liffId: "2009650617-0XGQdM6J" });
+            const params = new URLSearchParams(window.location.search);
+            const symbols = params.get('symbols');
 
-        async function init() {
-            try {
-                // 1. 初始化 LIFF (請確認此 ID 正確)
-                await liff.init({ liffId: "2009650617-0XGQdM6J" });
-                log("LIFF 初始化：成功");
+            if (symbols) {
+                // 清理代碼：移除空格與非必要字元
+                const cleanSymbols = symbols.replace(/\s/g, '');
+                const xqUrl = "xqlocal://import?symbols=" + cleanSymbols;
+                
+                document.getElementById('st').innerText = "已準備好 20 支標的";
+                document.getElementById('codes').innerText = cleanSymbols;
 
-                // 2. 獲取當前網址
-                const currentUrl = window.location.href;
-                log("當前網址：" + currentUrl);
-
-                // 3. 嘗試解析參數 (不管是從 liff.line.me 還是直接網址)
-                const urlParams = new URLSearchParams(window.location.search);
-                let symbols = urlParams.get('symbols');
-
-                // 處理 LINE 轉址時可能發生的參數弄丟問題
-                if (!symbols && liff.isLoggedIn()) {
-                    log("嘗試從跳轉前的網址抓取參數...");
-                }
-
-                if (symbols) {
-                    log("找到股票代碼：" + symbols);
-                    const xqUrl = "xqlocal://import?symbols=" + symbols;
-                    
-                    document.getElementById('main-status').innerText = "偵測到 " + symbols.split(',').length + " 支標的";
-                    document.getElementById('sub-status').innerText = "正在嘗試喚起 XQ App...";
-                    
-                    // 設定手動按鈕
-                    const btn = document.getElementById('manual-link');
-                    btn.href = xqUrl;
-                    btn.style.display = "inline-block";
-
-                    // 4. 嘗試自動跳轉
-                    log("執行自動跳轉指令...");
+                const btn = document.getElementById('mainBtn');
+                
+                // 點擊事件：使用多重跳轉策略
+                btn.onclick = () => {
+                    // 策略 1: 直接跳轉
                     window.location.href = xqUrl;
+                    
+                    // 策略 2: 延遲跳轉 (防止被攔截)
+                    setTimeout(() => {
+                        window.location.replace(xqUrl);
+                    }, 500);
 
-                } else {
-                    document.getElementById('main-status').innerText = "❌ 未偵測到標的";
-                    document.getElementById('sub-status').innerText = "請檢查 Python 傳過來的連結是否包含 ?symbols=";
-                    log("錯誤：網址中找不到 symbols 參數");
-                }
+                    // 策略 3: 使用 iframe (舊版系統常用)
+                    const iframe = document.createElement("iframe");
+                    iframe.style.display = "none";
+                    iframe.src = xqUrl;
+                    document.body.appendChild(iframe);
+                };
 
-            } catch (err) {
-                log("初始化失敗：" + err.message);
-                document.getElementById('main-status').innerText = "⚠️ 系統異常";
+                // 自動執行一次
+                btn.click();
+            } else {
+                document.getElementById('st').innerText = "未接收到參數";
             }
         }
-
-        init();
+        main();
     </script>
 </body>
 </html>
