@@ -3,20 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XQ 同步助手</title>
+    <title>量化交易同步助手</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 40px 20px; background: #f8f9fa; }
-        .btn { display: block; width: 100%; padding: 20px; background: #002752; color: white; border: none; border-radius: 10px; font-size: 20px; font-weight: bold; cursor: pointer; text-decoration: none; margin-top: 20px; }
-        .info { color: #666; font-size: 14px; margin-top: 10px; }
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #f4f7f6; color: #333; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .btn { display: block; width: 100%; padding: 18px; background: #002D72; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .stock-list { background: #e9ecef; padding: 15px; border-radius: 10px; margin: 20px 0; font-family: monospace; word-break: break-all; color: #444; }
+        .success-msg { color: #28a745; font-weight: bold; display: none; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h2 id="st">正在讀取清單...</h2>
-    <div id="codes" style="word-break: break-all; color: #1DB954; font-weight: bold;"></div>
-    
-    <button id="mainBtn" class="btn">立即匯入 XQ App</button>
-    <p class="info">若點擊無反應，請確保已安裝 XQ 全球贏家</p>
+    <div class="card">
+        <h2 id="status">準備同步 20 支標的</h2>
+        <div id="stockDisplay" class="stock-list">讀取中...</div>
+        
+        <button id="copyBtn" class="btn">📋 一鍵複製並開啟 XQ</button>
+        <div id="msg" class="success-msg">✅ 已複製！請至 XQ 貼上匯入</div>
+        
+        <p style="font-size: 13px; color: #888; margin-top: 20px;">
+            因系統限制，請點擊上方按鈕後，<br>自行開啟 XQ 於「自選股」貼上即可。
+        </p>
+    </div>
 
     <script>
         async function main() {
@@ -25,36 +33,30 @@
             const symbols = params.get('symbols');
 
             if (symbols) {
-                // 清理代碼：移除空格與非必要字元
                 const cleanSymbols = symbols.replace(/\s/g, '');
-                const xqUrl = "xqlocal://import?symbols=" + cleanSymbols;
-                
-                document.getElementById('st').innerText = "已準備好 20 支標的";
-                document.getElementById('codes').innerText = cleanSymbols;
+                document.getElementById('stockDisplay').innerText = cleanSymbols;
 
-                const btn = document.getElementById('mainBtn');
-                
-                // 點擊事件：使用多重跳轉策略
+                const btn = document.getElementById('copyBtn');
                 btn.onclick = () => {
-                    // 策略 1: 直接跳轉
-                    window.location.href = xqUrl;
+                    // 執行複製到剪貼簿
+                    const el = document.createElement('textarea');
+                    el.value = cleanSymbols;
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+
+                    // 顯示成功訊息
+                    document.getElementById('msg').style.display = "block";
+                    btn.innerText = "已複製，請開啟 XQ";
+                    btn.style.background = "#28a745";
+
+                    // 嘗試開啟 XQ (備援)
+                    window.location.href = "xqlocal://import?symbols=" + cleanSymbols;
                     
-                    // 策略 2: 延遲跳轉 (防止被攔截)
-                    setTimeout(() => {
-                        window.location.replace(xqUrl);
-                    }, 500);
-
-                    // 策略 3: 使用 iframe (舊版系統常用)
-                    const iframe = document.createElement("iframe");
-                    iframe.style.display = "none";
-                    iframe.src = xqUrl;
-                    document.body.appendChild(iframe);
+                    // 5秒後自動關閉 LIFF
+                    setTimeout(() => { liff.closeWindow(); }, 5000);
                 };
-
-                // 自動執行一次
-                btn.click();
-            } else {
-                document.getElementById('st').innerText = "未接收到參數";
             }
         }
         main();
