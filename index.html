@@ -7,7 +7,7 @@
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
-        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
         h2 { color: #002D72; margin: 0 0 15px 0; font-size: 20px; }
         .input-box { background: #f0f2f5; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
         input { width: 100%; border: none; background: transparent; font-size: 22px; font-weight: bold; color: #002D72; outline: none; }
@@ -15,7 +15,7 @@
         th { text-align: left; color: #999; font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; }
         td { padding: 12px 8px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
         .shares { color: #1DB954; font-weight: bold; text-align: right; }
-        #debug { font-size: 10px; color: #ccc; margin-top: 15px; text-align: center; }
+        #debug { font-size: 10px; color: #ccc; margin-top: 15px; text-align: center; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -37,32 +37,43 @@
         </thead>
         <tbody></tbody>
     </table>
-    <div id="debug">正在讀取最新行情...</div>
+    <div id="debug">正在讀取數據...</div>
 </div>
 
 <script>
     let stocks = [];
 
+    // 強大的參數抓取器：可同時抓取 Search 與 Hash 中的參數
+    function getParam(name) {
+        const url = window.location.href;
+        const results = new RegExp('[\\?&]' + name + '=([^&#]*)').exec(url);
+        if (!results) return null;
+        return results[1] || 0;
+    }
+
     async function main() {
+        const debug = document.getElementById('debug');
         try {
+            // 1. 初始化 LIFF
             await liff.init({ liffId: "2009650617-0XGQdM6J" });
-            const params = new URLSearchParams(window.location.search);
-            const encodedData = params.get('d'); // 讀取簡寫參數 d
+            
+            // 2. 使用加強版抓取 'd' 參數
+            const encodedData = getParam('d');
 
             if (encodedData) {
-                // 解碼並將極簡 Key (i, p) 轉回 (id, price)
                 const raw = JSON.parse(decodeURIComponent(encodedData));
                 stocks = raw.map(item => ({
                     id: item.i,
                     price: item.p
                 }));
-                document.getElementById('debug').innerText = "數據載入成功";
+                debug.innerText = "數據載入成功 (" + stocks.length + " 支)";
                 calculate();
             } else {
-                document.getElementById('debug').innerText = "未接收到參數";
+                debug.innerText = "未接收到參數，請由 LINE 訊息開啟";
+                console.log("Current URL:", window.location.href);
             }
         } catch (err) {
-            document.getElementById('debug').innerText = "錯誤: " + err.message;
+            debug.innerText = "初始化失敗: " + err.message;
         }
     }
 
