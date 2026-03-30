@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>量化交易同步中...</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f4f4f9; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #002D72; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="spinner"></div>
+    <h3>正在為您同步 20 支標的至 XQ...</h3>
+
+    <script>
+        async function main() {
+            // 1. 初始化 LIFF
+            await liff.init({ liffId: "2009650617-0XGQdM6J" });
+
+            // 2. 解析網址中的股票參數
+            const urlParams = new URLSearchParams(window.location.search);
+            const symbols = urlParams.get('symbols');
+
+            if (symbols) {
+                // 3. 關鍵：執行跳轉至 XQ App
+                window.location.href = "xqlocal://import?symbols=" + symbols;
+                
+                // 4. 3秒後自動關閉網頁回到 LINE
+                setTimeout(() => { liff.closeWindow(); }, 3000);
+            } else {
+                document.querySelector('h3').innerText = "未接收到股票代碼，請重新從 LINE 開啟";
+            }
+        }
+        main();
+    </script>
+</body>
+</html>
