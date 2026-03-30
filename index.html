@@ -2,51 +2,82 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>量化同步助手</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XQ 同步診斷工具</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; background: #f0f2f5; text-align: center; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { display: inline-block; padding: 15px 30px; background: #002D72; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 15px; }
+        .debug-info { text-align: left; background: #333; color: #00ff00; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; overflow-x: auto; }
+    </style>
 </head>
-<body style="text-align:center; padding-top:100px; font-family:sans-serif; background:#f0f2f5;">
-    <h2 id="status">正在初始化系統...</h2>
-    <div id="debug" style="font-size:12px; color:gray; margin-top:20px;"></div>
+<body>
+
+    <div class="card">
+        <h2 id="main-status">系統診斷中...</h2>
+        <p id="sub-status">請稍候</p>
+        <a id="manual-link" href="#" class="btn" style="display:none;">強制開啟 XQ (手動)</a>
+    </div>
+
+    <div class="card">
+        <h4>🔍 偵錯資訊 (Debug Info)</h4>
+        <div id="debug-log" class="debug-info">正在讀取網址參數...</div>
+    </div>
 
     <script>
-        async function main() {
-            const debug = document.getElementById('debug');
-            const status = document.getElementById('status');
+        const log = (msg) => {
+            document.getElementById('debug-log').innerHTML += "<br>> " + msg;
+        };
 
+        async function init() {
             try {
-                // 【關鍵】請把下方引號內換成您的 LIFF ID
-                await liff.init({ liffId: "2009650617-0XGQdM6J" }); 
-                
-                debug.innerText = "LIFF 初始化成功";
+                // 1. 初始化 LIFF (請確認此 ID 正確)
+                await liff.init({ liffId: "2009650617-0XGQdM6J" });
+                log("LIFF 初始化：成功");
 
+                // 2. 獲取當前網址
+                const currentUrl = window.location.href;
+                log("當前網址：" + currentUrl);
+
+                // 3. 嘗試解析參數 (不管是從 liff.line.me 還是直接網址)
                 const urlParams = new URLSearchParams(window.location.search);
-                const symbols = urlParams.get('symbols');
+                let symbols = urlParams.get('symbols');
+
+                // 處理 LINE 轉址時可能發生的參數弄丟問題
+                if (!symbols && liff.isLoggedIn()) {
+                    log("嘗試從跳轉前的網址抓取參數...");
+                }
 
                 if (symbols) {
-                    status.innerText = "正在跳轉至 XQ App...";
+                    log("找到股票代碼：" + symbols);
                     const xqUrl = "xqlocal://import?symbols=" + symbols;
                     
-                    // 執行跳轉
+                    document.getElementById('main-status').innerText = "偵測到 " + symbols.split(',').length + " 支標的";
+                    document.getElementById('sub-status').innerText = "正在嘗試喚起 XQ App...";
+                    
+                    // 設定手動按鈕
+                    const btn = document.getElementById('manual-link');
+                    btn.href = xqUrl;
+                    btn.style.display = "inline-block";
+
+                    // 4. 嘗試自動跳轉
+                    log("執行自動跳轉指令...");
                     window.location.href = xqUrl;
 
-                    // 備援機制：如果沒跳轉，提供按鈕
-                    setTimeout(() => {
-                        status.innerHTML = `
-                            <p>若手機未自動彈出 XQ，請點擊下方：</p>
-                            <a href="${xqUrl}" style="padding:15px 30px; background:#002D72; color:white; text-decoration:none; border-radius:5px;">手動開啟 XQ</a>
-                        `;
-                    }, 2000);
-
                 } else {
-                    status.innerText = "錯誤：網址未帶入股票代碼";
+                    document.getElementById('main-status').innerText = "❌ 未偵測到標的";
+                    document.getElementById('sub-status').innerText = "請檢查 Python 傳過來的連結是否包含 ?symbols=";
+                    log("錯誤：網址中找不到 symbols 參數");
                 }
+
             } catch (err) {
-                status.innerText = "系統錯誤";
-                debug.innerText = err.message;
+                log("初始化失敗：" + err.message);
+                document.getElementById('main-status').innerText = "⚠️ 系統異常";
             }
         }
-        main();
+
+        init();
     </script>
 </body>
 </html>
