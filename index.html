@@ -3,63 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>量化交易同步助手</title>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <title>Tim Hung 量化下單助手</title>
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #f4f7f6; color: #333; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        .btn { display: block; width: 100%; padding: 18px; background: #002D72; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        .stock-list { background: #e9ecef; padding: 15px; border-radius: 10px; margin: 20px 0; font-family: monospace; word-break: break-all; color: #444; }
-        .success-msg { color: #28a745; font-weight: bold; display: none; margin-top: 10px; }
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; padding: 15px; }
+        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h2 { color: #002D72; margin-top: 0; }
+        .input-group { margin: 20px 0; }
+        input[type="number"] { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        th { text-align: left; border-bottom: 2px solid #eee; padding: 8px; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        .buy-btn { width: 100%; background: #e63946; color: white; border: none; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2 id="status">準備同步 20 支標的</h2>
-        <div id="stockDisplay" class="stock-list">讀取中...</div>
-        
-        <button id="copyBtn" class="btn">📋 一鍵複製並開啟 XQ</button>
-        <div id="msg" class="success-msg">✅ 已複製！請至 XQ 貼上匯入</div>
-        
-        <p style="font-size: 13px; color: #888; margin-top: 20px;">
-            因系統限制，請點擊上方按鈕後，<br>自行開啟 XQ 於「自選股」貼上即可。
-        </p>
+
+<div class="card">
+    <h2>💰 投資預算試算</h2>
+    <div class="input-group">
+        <label>輸入總投資金額 (台幣)：</label>
+        <input type="number" id="budget" value="500000" oninput="calculate()">
     </div>
 
-    <script>
-        async function main() {
-            await liff.init({ liffId: "2009650617-0XGQdM6J" });
-            const params = new URLSearchParams(window.location.search);
-            const symbols = params.get('symbols');
+    <table id="stockTable">
+        <thead>
+            <tr>
+                <th>代碼</th>
+                <th>估計價</th>
+                <th>分配股數</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
 
-            if (symbols) {
-                const cleanSymbols = symbols.replace(/\s/g, '');
-                document.getElementById('stockDisplay').innerText = cleanSymbols;
+    <button class="buy-btn" onclick="placeOrder()">⚡ 執行一鍵下單</button>
+</div>
 
-                const btn = document.getElementById('copyBtn');
-                btn.onclick = () => {
-                    // 執行複製到剪貼簿
-                    const el = document.createElement('textarea');
-                    el.value = cleanSymbols;
-                    document.body.appendChild(el);
-                    el.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(el);
+<script>
+    // 假設這是 Python 傳過來的 20 支標的與目前估價
+    const stockList = [
+        {id: "2330", name: "台積電", price: 780},
+        {id: "2317", name: "鴻海", price: 150},
+        {id: "2454", name: "聯發科", price: 1100},
+        // ... 這裡可以由網址參數 symbols 解析而來
+    ];
 
-                    // 顯示成功訊息
-                    document.getElementById('msg').style.display = "block";
-                    btn.innerText = "已複製，請開啟 XQ";
-                    btn.style.background = "#28a745";
+    function calculate() {
+        const budget = document.getElementById('budget').value;
+        const perStockBudget = budget / stockList.length;
+        const tbody = document.querySelector('#stockTable tbody');
+        tbody.innerHTML = "";
 
-                    // 嘗試開啟 XQ (備援)
-                    window.location.href = "xqlocal://import?symbols=" + cleanSymbols;
-                    
-                    // 5秒後自動關閉 LIFF
-                    setTimeout(() => { liff.closeWindow(); }, 5000);
-                };
-            }
-        }
-        main();
-    </script>
+        stockList.forEach(stock => {
+            const shares = Math.floor(perStockBudget / stock.price);
+            const row = `<tr>
+                <td>${stock.id} ${stock.name}</td>
+                <td>${stock.price}</td>
+                <td style="color:red; font-weight:bold;">${shares.toLocaleString()} 股</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function placeOrder() {
+        alert("即將連線至永豐金證券執行 API 下單...\n(此功能需整合 Shioaji 與憑證)");
+    }
+
+    calculate();
+</script>
+
 </body>
 </html>
