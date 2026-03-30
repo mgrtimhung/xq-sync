@@ -1,77 +1,108 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tim Hung 量化下單助手</title>
+    <title>Tim Hung 量化投資試算</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #f0f2f5; padding: 15px; }
-        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h2 { color: #002D72; margin-top: 0; }
-        .input-group { margin: 20px 0; }
-        input[type="number"] { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 18px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
-        th { text-align: left; border-bottom: 2px solid #eee; padding: 8px; }
-        td { padding: 8px; border-bottom: 1px solid #eee; }
-        .buy-btn { width: 100%; background: #e63946; color: white; border: none; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; margin-top: 20px; }
+        :root { --primary-color: #002D72; --accent-color: #1DB954; }
+        body { font-family: -apple-system, "Helvetica Neue", sans-serif; background: #f8f9fa; margin: 0; padding: 15px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        h2 { color: var(--primary-color); font-size: 20px; margin: 0 0 15px 0; display: flex; align-items: center; }
+        .input-group { background: #f0f2f5; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+        label { display: block; font-size: 14px; color: #666; margin-bottom: 8px; }
+        input[type="number"] { width: 100%; border: none; background: transparent; font-size: 24px; font-weight: bold; color: var(--primary-color); outline: none; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; font-size: 12px; color: #999; padding: 10px 5px; border-bottom: 1px solid #eee; }
+        td { padding: 12px 5px; border-bottom: 1px solid #f9f9f9; font-size: 15px; }
+        .stock-id { font-weight: bold; color: #333; }
+        .stock-price { color: #666; font-size: 13px; }
+        .stock-shares { text-align: right; color: var(--accent-color); font-weight: bold; }
+        
+        .footer-btn { width: 100%; padding: 16px; background: #e63946; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.3s; }
+        .footer-btn:active { transform: scale(0.98); opacity: 0.9; }
+        #debug { font-size: 10px; color: #ccc; margin-top: 10px; text-align: center; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>💰 投資預算試算</h2>
-    <div class="input-group">
-        <label>輸入總投資金額 (台幣)：</label>
-        <input type="number" id="budget" value="500000" oninput="calculate()">
+<div class="container">
+    <div class="card">
+        <h2>💰 投資預算配置</h2>
+        <div class="input-group">
+            <label>預計投入總金額 (TWD)</label>
+            <input type="number" id="budgetInput" value="1000000" step="10000" oninput="renderTable()">
+        </div>
+
+        <table id="resultTable">
+            <thead>
+                <tr>
+                    <th>標的代碼</th>
+                    <th>目前行情</th>
+                    <th style="text-align: right;">分配股數</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+
+        <button class="footer-btn" onclick="handleTrade()">⚡ 確認分配並執行下單</button>
+        <div id="debug">等待 LIFF 初始化...</div>
     </div>
-
-    <table id="stockTable">
-        <thead>
-            <tr>
-                <th>代碼</th>
-                <th>估計價</th>
-                <th>分配股數</th>
-            </tr>
-        </thead>
-        <tbody>
-            </tbody>
-    </table>
-
-    <button class="buy-btn" onclick="placeOrder()">⚡ 執行一鍵下單</button>
 </div>
 
 <script>
-    // 假設這是 Python 傳過來的 20 支標的與目前估價
-    const stockList = [
-        {id: "2330", name: "台積電", price: 780},
-        {id: "2317", name: "鴻海", price: 150},
-        {id: "2454", name: "聯發科", price: 1100},
-        // ... 這裡可以由網址參數 symbols 解析而來
-    ];
+    let globalStockData = []; // 儲存從 Python 傳來的數據
 
-    function calculate() {
-        const budget = document.getElementById('budget').value;
-        const perStockBudget = budget / stockList.length;
-        const tbody = document.querySelector('#stockTable tbody');
+    async function main() {
+        const debug = document.getElementById('debug');
+        try {
+            // 1. 初始化 LIFF
+            await liff.init({ liffId: "2009650617-0XGQdM6J" });
+            debug.innerText = "系統已就緒";
+
+            // 2. 解析網址參數 (data)
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
+
+            if (encodedData) {
+                // 解碼並轉回 JSON 物件
+                globalStockData = JSON.parse(decodeURIComponent(encodedData));
+                renderTable(); // 執行第一次渲染
+            } else {
+                debug.innerText = "錯誤：未接收到股票數據";
+            }
+        } catch (err) {
+            debug.innerText = "初始化失敗: " + err.message;
+        }
+    }
+
+    function renderTable() {
+        const budget = document.getElementById('budgetInput').value || 0;
+        const tbody = document.querySelector('#resultTable tbody');
         tbody.innerHTML = "";
 
-        stockList.forEach(stock => {
+        // 計算邏輯：平均分配預算 (20 支股票各佔 5%)
+        const perStockBudget = budget / globalStockData.length;
+
+        globalStockData.forEach(stock => {
             const shares = Math.floor(perStockBudget / stock.price);
-            const row = `<tr>
-                <td>${stock.id} ${stock.name}</td>
-                <td>${stock.price}</td>
-                <td style="color:red; font-weight:bold;">${shares.toLocaleString()} 股</td>
-            </tr>`;
-            tbody.innerHTML += row;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><span class="stock-id">${stock.id}</span></td>
+                <td><span class="stock-price">$${stock.price}</span></td>
+                <td class="stock-shares">${shares.toLocaleString()} 股</td>
+            `;
+            tbody.innerHTML += tr.innerHTML;
         });
     }
 
-    function placeOrder() {
-        alert("即將連線至永豐金證券執行 API 下單...\n(此功能需整合 Shioaji 與憑證)");
-    }
-
-    calculate();
-</script>
-
-</body>
-</html>
+    function handleTrade() {
+        // 未來這裡將整合憑證簽章與永豐金 API
+        const budget = document.getElementById('budgetInput').value;
+        liff.sendMessages([{
+            type: 'text',
+            text:
