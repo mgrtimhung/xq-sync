@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>量化投資試算表</title>
+    <title>量化投資試算</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
         .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
-        h2 { color: #002D72; margin: 0 0 15px 0; font-size: 20px; }
+        h2 { color: #002D72; margin: 0 0 15px 0; }
         .input-group { background: #f0f2f5; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
         input { width: 100%; border: none; background: transparent; font-size: 22px; font-weight: bold; color: #002D72; outline: none; }
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; color: #999; font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; }
         td { padding: 12px 8px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
         .shares { color: #1DB954; font-weight: bold; text-align: right; }
-        #debug { font-size: 11px; color: #e63946; margin-top: 20px; text-align: center; background: #fff1f0; padding: 5px; border-radius: 5px; }
+        #debug { font-size: 11px; color: #666; margin-top: 20px; text-align: center; background: #eee; padding: 10px; border-radius: 5px; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -37,46 +37,47 @@
         </thead>
         <tbody></tbody>
     </table>
-    <div id="debug">正在載入數據...</div>
+    <div id="debug">等待 LIFF 初始化...</div>
 </div>
 
 <script>
     let stocks = [];
 
-    // 通用的 URL 參數抓取工具 (支援電腦版與手機版)
-    function getQueryParam(name) {
+    // 強大的參數抓取器：支援各種網址變體
+    function getParam(name) {
         const url = window.location.href;
-        const results = new RegExp('[\\?&]' + name + '=([^&#]*)').exec(url);
+        // 先嘗試從 Query String 找
+        let results = new RegExp('[\\?&]' + name + '=([^&#]*)').exec(url);
+        if (!results) {
+            // 如果找不到，嘗試從 Hash (#) 後面找 (電腦版常見狀況)
+            const hash = window.location.hash;
+            results = new RegExp('[\\?&]' + name + '=([^&#]*)').exec(hash);
+        }
         return results ? decodeURIComponent(results[1]) : null;
     }
 
     async function main() {
-        const debugDiv = document.getElementById('debug');
+        const debug = document.getElementById('debug');
         try {
-            // 1. 初始化 LIFF
             await liff.init({ liffId: "2009650617-0XGQdM6J" });
             
-            // 2. 抓取參數 'd' (Python 傳過來的)
-            const dataParam = getQueryParam('d');
-
-            if (dataParam) {
-                // 3. 解析 JSON 數據
-                const rawData = JSON.parse(dataParam);
-                
-                // 4. 對應壓縮後的 Key: i -> id, p -> price
-                stocks = rawData.map(item => ({
+            // 關鍵：抓取 Python 傳過來的 'd'
+            const dataStr = getParam('d');
+            
+            if (dataStr) {
+                const raw = JSON.parse(dataStr);
+                // 確保對應 Python 的 i (id) 和 p (price)
+                stocks = raw.map(item => ({
                     id: item.i,
                     price: item.p
                 }));
-
-                debugDiv.style.color = "#1DB954";
-                debugDiv.innerText = "✅ 數據同步成功 (" + stocks.length + " 支)";
+                debug.innerText = "✅ 成功載入 " + stocks.length + " 支股票";
                 calculate();
             } else {
-                debugDiv.innerText = "❌ 警告：網址中找不到股票數據參數(d)";
+                debug.innerHTML = "❌ 錯誤：網址中沒看到數據參數 d<br>目前網址：" + window.location.href;
             }
         } catch (err) {
-            debugDiv.innerText = "❌ 初始化出錯: " + err.message;
+            debug.innerText = "❌ 發生錯誤: " + err.message;
         }
     }
 
@@ -84,9 +85,6 @@
         const budget = document.getElementById('budget').value || 0;
         const tbody = document.querySelector('#stockTable tbody');
         tbody.innerHTML = "";
-        
-        if (stocks.length === 0) return;
-
         const perBudget = budget / stocks.length;
 
         stocks.forEach(s => {
