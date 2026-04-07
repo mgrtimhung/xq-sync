@@ -1,107 +1,79 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>量化投資試算</title>
+    <title>投資比例試算</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
+        body { font-family: sans-serif; background: #f4f7f6; padding: 15px; }
         .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
-        h2 { color: #002D72; margin: 0 0 15px 0; }
         .input-group { background: #f0f2f5; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
         input { width: 100%; border: none; background: transparent; font-size: 22px; font-weight: bold; color: #002D72; outline: none; }
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         th { text-align: left; color: #999; font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; }
         td { padding: 12px 8px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
-        .shares { color: #1DB954; font-weight: bold; text-align: right; }
-        .buy-btn { width: 100%; padding: 15px; background: #e63946; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-top: 15px; cursor: pointer; }
-        #debug { font-size: 11px; color: #666; margin-top: 20px; text-align: center; background: #eee; padding: 10px; border-radius: 5px; word-break: break-all; }
+        .buy-btn { width: 100%; padding: 15px; background: #e63946; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        #debug { font-size: 11px; color: #666; margin-top: 15px; text-align: center; word-break: break-all; }
     </style>
 </head>
 <body>
-
-<div class="card">
-    <h2>🚀 投資比例試算</h2>
-    <div class="input-group">
-        <label style="font-size: 12px; color: #666;">預計投入總額 (TWD)</label>
-        <input type="number" id="budget" value="1000000" oninput="calculate()">
+    <div class="card">
+        <h2>🚀 投資比例試算</h2>
+        <div class="input-group">
+            <label style="font-size: 12px;">投入總額 (TWD)</label>
+            <input type="number" id="budget" value="1000000" oninput="calculate()">
+        </div>
+        <table id="stockTable">
+            <thead><tr><th>標的代碼</th><th>估計價</th><th style="text-align:right;">分配股數</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        <button class="buy-btn" onclick="handleTrade()">⚡ 確認分配並執行模擬下單</button>
+        <div id="debug">初始化中...</div>
     </div>
 
-    <table id="stockTable">
-        <thead>
-            <tr>
-                <th>標的代碼</th>
-                <th>估計價</th>
-                <th style="text-align: right;">分配股數</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <script>
+        let stocks = [];
+        const NGROK_URL = "https://你的網址.ngrok-free.app/order"; // <-- 修改這裡
 
-    <button class="buy-btn" onclick="handleTrade()">⚡ 確認分配並執行模擬下單</button>
-    <div id="debug">等待數據輸入...</div>
-</div>
-
-<script>
-    let stocks = [];
-
-    // 萬用參數抓取器
-    function getParam(name) {
-        const url = new URL(window.location.href.replace('#/', '/')); 
-        return url.searchParams.get(name);
-    }
-
-    async function main() {
-        const debug = document.getElementById('debug');
-        try {
-            // 1. 初始化 LIFF
-            debug.innerText = "正在初始化 LIFF...";
-            await liff.init({ liffId: "2009650617-0XGQdM6J" });
-            
-            // 2. 抓取參數
-            const dataStr = getParam('d');
-            debug.innerText = "收到參數: " + (dataStr ? "有" : "無");
-            
-            if (dataStr) {
-                const raw = JSON.parse(decodeURIComponent(dataStr));
-                stocks = raw.map(item => ({
-                    id: item.i,
-                    price: item.p
-                }));
-                debug.innerText = "✅ 成功載入 " + stocks.length + " 支標的";
-                calculate();
-            } else {
-                debug.innerText = "❌ 錯誤：網址中缺少 'd' 參數";
-            }
-        } catch (err) {
-            debug.innerText = "❌ 錯誤: " + err.message;
-            console.error(err);
+        async function main() {
+            const debug = document.getElementById('debug');
+            try {
+                await liff.init({ liffId: "2009650617-0XGQdM6J" });
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataStr = urlParams.get('d');
+                if (dataStr) {
+                    const raw = JSON.parse(decodeURIComponent(dataStr));
+                    stocks = raw.map(v => ({ id: v.i, price: v.p }));
+                    debug.innerText = "✅ 成功載入 " + stocks.length + " 支標的";
+                    calculate();
+                } else { debug.innerText = "❌ 找不到參數 d"; }
+            } catch (e) { debug.innerText = "❌ 錯誤: " + e.message; }
         }
-    }
 
-    function calculate() {
-        const budget = document.getElementById('budget').value || 0;
-        const tbody = document.querySelector('#stockTable tbody');
-        tbody.innerHTML = "";
-        if (stocks.length === 0) return;
+        function calculate() {
+            const budget = document.getElementById('budget').value || 0;
+            const tbody = document.querySelector('#stockTable tbody');
+            tbody.innerHTML = "";
+            stocks.forEach(s => {
+                const shares = Math.floor((budget / stocks.length) / s.price);
+                tbody.innerHTML += `<tr><td><b>${s.id}</b></td><td>$${s.price}</td><td style="text-align:right;color:#1DB954;font-weight:bold;">${shares.toLocaleString()} 股</td></tr>`;
+            });
+        }
 
-        const perBudget = budget / stocks.length;
-        stocks.forEach(s => {
-            const shareCount = Math.floor(perBudget / s.price);
-            tbody.innerHTML += `<tr>
-                <td><b>${s.id}</b></td>
-                <td>$${s.price}</td>
-                <td class="shares">${shareCount.toLocaleString()} 股</td>
-            </tr>`;
-        });
-    }
-
-    function handleTrade() {
-        alert("功能正常！正在連線至模擬伺服器...");
-    }
-
-    main();
-</script>
+        async function handleTrade() {
+            const debug = document.getElementById('debug');
+            debug.innerText = "🚀 傳送中...";
+            try {
+                const res = await fetch(NGROK_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user: "Tim Hung", orders: stocks })
+                });
+                if (res.ok) { alert("下單成功！請看電腦視窗"); debug.innerText = "✅ 下單已送達"; }
+            } catch (e) { debug.innerText = "❌ 連線失敗: " + e.message; }
+        }
+        main();
+    </script>
 </body>
 </html>
