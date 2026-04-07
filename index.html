@@ -3,96 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>量化投資試算</title>
+    <title>Tim Hung 量化下單助手</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
-        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
-        h2 { color: #002D72; margin: 0 0 15px 0; font-size: 20px; }
-        .input-box { background: #f0f2f5; padding: 12px; border-radius: 10px; margin-bottom: 20px; }
-        input { width: 100%; border: none; background: transparent; font-size: 22px; font-weight: bold; color: #002D72; outline: none; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; color: #999; font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; }
-        td { padding: 12px 8px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
-        .shares { color: #1DB954; font-weight: bold; text-align: right; }
-        #debug { font-size: 10px; color: #ccc; margin-top: 15px; text-align: center; word-break: break-all; }
+        :root { --primary: #002D72; --secondary: #1DB954; --accent: #e63946; }
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
+        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
+        h2 { color: var(--primary); margin: 0 0 15px 0; font-size: 20px; }
+        .input-box { background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #eee; }
+        label { display: block; font-size: 12px; color: #666; margin-bottom: 5px; }
+        input { width: 100%; border: none; background: transparent; font-size: 24px; font-weight: bold; color: var(--primary); outline: none; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { text-align: left; color: #999; font-size: 12px; padding: 10px 5px; border-bottom: 1px solid #eee; }
+        td { padding: 12px 5px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
+        .stock-id { font-weight: bold; }
+        .shares { color: var(--secondary); font-weight: bold; text-align: right; }
+        .buy-btn { width: 100%; padding: 18px; background: var(--accent); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .buy-btn:disabled { background: #ccc; cursor: not-allowed; }
+        #debug { font-size: 10px; color: #bbb; margin-top: 15px; text-align: center; word-break: break-all; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>💰 投資金額試算</h2>
+    <h2>🚀 投資比例試算</h2>
+    
     <div class="input-box">
-        <label style="font-size: 12px; color: #666;">投入總額 (TWD)</label>
+        <label>預計投入總金額 (TWD)</label>
         <input type="number" id="budget" value="1000000" oninput="calculate()">
     </div>
 
     <table id="stockTable">
         <thead>
             <tr>
-                <th>代碼</th>
-                <th>價格</th>
-                <th style="text-align: right;">股數</th>
+                <th>標的代碼</th>
+                <th>估計價</th>
+                <th style="text-align: right;">分配股數</th>
             </tr>
         </thead>
-        <tbody></tbody>
+        <tbody>
+            </tbody>
     </table>
-    <div id="debug">正在讀取數據...</div>
+
+    <button class="buy-btn" id="tradeBtn" onclick="handleTrade()">⚡ 確認分配並執行模擬下單</button>
+    <div id="debug">系統初始化中...</div>
 </div>
 
 <script>
     let stocks = [];
+    // 【重要】請將此處換成您啟動 ngrok 後產生的 https 網址
+    const API_SERVER_URL = '您的_NGROK_網址'; 
 
-    // 強大的參數抓取器：可同時抓取 Search 與 Hash 中的參數
-    function getParam(name) {
-        const url = window.location.href;
-        const results = new RegExp('[\\?&]' + name + '=([^&#]*)').exec(url);
-        if (!results) return null;
-        return results[1] || 0;
-    }
-
-    async function main() {
-        const debug = document.getElementById('debug');
-        try {
-            // 1. 初始化 LIFF
-            await liff.init({ liffId: "2009650617-0XGQdM6J" });
-            
-            // 2. 使用加強版抓取 'd' 參數
-            const encodedData = getParam('d');
-
-            if (encodedData) {
-                const raw = JSON.parse(decodeURIComponent(encodedData));
-                stocks = raw.map(item => ({
-                    id: item.i,
-                    price: item.p
-                }));
-                debug.innerText = "數據載入成功 (" + stocks.length + " 支)";
-                calculate();
-            } else {
-                debug.innerText = "未接收到參數，請由 LINE 訊息開啟";
-                console.log("Current URL:", window.location.href);
-            }
-        } catch (err) {
-            debug.innerText = "初始化失敗: " + err.message;
-        }
-    }
-
-    function calculate() {
-        const budget = document.getElementById('budget').value || 0;
-        const tbody = document.querySelector('#stockTable tbody');
-        tbody.innerHTML = "";
-        const perBudget = budget / stocks.length;
-
-        stocks.forEach(s => {
-            const shares = Math.floor(perBudget / s.price);
-            tbody.innerHTML += `<tr>
-                <td><b>${s.id}</b></td>
-                <td>$${s.price}</td>
-                <td class="shares">${shares.toLocaleString()} 股</td>
-            </tr>`;
-        });
-    }
-    main();
-</script>
-</body>
-</html>
+    // --- 1. 全平台參數解析器 ---
+    function get
