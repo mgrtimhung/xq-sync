@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>投資比例試算</title>
+    <title>量化投資試算</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body { font-family: sans-serif; background: #f4f7f6; padding: 15px; }
@@ -13,15 +13,16 @@
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         th { text-align: left; color: #999; font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; }
         td { padding: 12px 8px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
-        .buy-btn { width: 100%; padding: 15px; background: #e63946; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        #debug { font-size: 11px; color: #666; margin-top: 15px; text-align: center; word-break: break-all; }
+        .buy-btn { width: 100%; padding: 18px; background: #e63946; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(230,57,70,0.3); }
+        .buy-btn:active { background: #c12a35; transform: scale(0.98); }
+        #debug { font-size: 11px; color: #666; margin-top: 15px; text-align: center; word-break: break-all; background: #eee; padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
     <div class="card">
         <h2>🚀 投資比例試算</h2>
         <div class="input-group">
-            <label style="font-size: 12px;">投入總額 (TWD)</label>
+            <label style="font-size: 12px; color: #666;">預計投入總額 (TWD)</label>
             <input type="number" id="budget" value="1000000" oninput="calculate()">
         </div>
         <table id="stockTable">
@@ -29,34 +30,27 @@
             <tbody></tbody>
         </table>
         <button class="buy-btn" onclick="handleTrade()">⚡ 確認分配並執行模擬下單</button>
-        <div id="debug">初始化中...</div>
+        <div id="debug">等待數據輸入...</div>
     </div>
 
     <script>
         let stocks = [];
-        // 修正點 1: 填入您最新的 ngrok 網址
+        // ⚠️ 請務必將下方網址換成你目前的 ngrok 網址
         const NGROK_URL = "https://hemic-lakeshia-unmaintained.ngrok-free.dev/order";
 
         async function main() {
             const debug = document.getElementById('debug');
             try {
                 await liff.init({ liffId: "2009650617-0XGQdM6J" });
-                
-                // 修正點 2: 使用更強大的方式抓取參數 'd'
                 const urlObj = new URL(window.location.href.replace('#/', '/'));
                 const dataStr = urlObj.searchParams.get('d');
-
                 if (dataStr) {
                     const raw = JSON.parse(decodeURIComponent(dataStr));
                     stocks = raw.map(v => ({ id: v.i, price: v.p }));
                     debug.innerText = "✅ 成功載入 " + stocks.length + " 支標的";
                     calculate();
-                } else { 
-                    debug.innerText = "❌ 找不到參數 d，目前網址：" + window.location.href; 
-                }
-            } catch (e) { 
-                debug.innerText = "❌ 錯誤: " + e.message; 
-            }
+                } else { debug.innerText = "❌ 找不到參數 d"; }
+            } catch (e) { debug.innerText = "❌ 錯誤: " + e.message; }
         }
 
         function calculate() {
@@ -64,7 +58,6 @@
             const tbody = document.querySelector('#stockTable tbody');
             tbody.innerHTML = "";
             if (stocks.length === 0) return;
-
             const perBudget = budget / stocks.length;
             stocks.forEach(s => {
                 const shares = Math.floor(perBudget / s.price);
@@ -74,14 +67,13 @@
 
         async function handleTrade() {
             const debug = document.getElementById('debug');
-            debug.innerText = "🚀 傳送中...";
+            debug.innerText = "🚀 正在傳送到電腦...";
             try {
-                // 修正點 3: 加入跳過 ngrok 警告頁面的 Header
                 const res = await fetch(NGROK_URL, {
                     method: "POST",
                     headers: { 
                         "Content-Type": "application/json",
-                        "ngrok-skip-browser-warning": "69420" 
+                        "ngrok-skip-browser-warning": "true" // 關鍵：跳過 ngrok 警告頁面
                     },
                     body: JSON.stringify({ 
                         user: "Tim Hung", 
@@ -89,15 +81,14 @@
                         budget: document.getElementById('budget').value
                     })
                 });
-                
                 if (res.ok) { 
-                    alert("下單成功！請看電腦視窗"); 
+                    alert("下單成功！請看電腦 VS Code 視窗"); 
                     debug.innerText = "✅ 下單已送達電腦端"; 
                 } else {
                     debug.innerText = "❌ 伺服器回應錯誤: " + res.status;
                 }
             } catch (e) { 
-                debug.innerText = "❌ 連線失敗: " + e.message; 
+                debug.innerText = "❌ 連線失敗 (Failed to fetch): " + e.message; 
             }
         }
         main();
