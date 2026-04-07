@@ -1,42 +1,40 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>量化投資試算</title>
+    <title>投資試算面板</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
+        body { font-family: sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
         .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
-        h2 { color: #002D72; margin: 0 0 15px 0; font-size: 20px; }
         .input-group { background: #f0f2f5; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
-        input { width: 100%; border: none; background: #f0f2f5; font-size: 22px; font-weight: bold; color: #002D72; outline: none; }
+        input { width: 100%; border: none; background: transparent; font-size: 22px; font-weight: bold; color: #002D72; outline: none; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         th { text-align: left; color: #999; font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; }
         td { padding: 12px 8px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
         .buy-btn { width: 100%; padding: 18px; background: #e63946; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; }
-        .buy-btn:active { background: #c12a35; transform: scale(0.98); }
-        #debug { font-size: 11px; color: #666; margin-top: 15px; text-align: center; background: #eee; padding: 10px; border-radius: 8px; word-break: break-all; }
+        #debug { font-size: 11px; color: #666; margin-top: 15px; text-align: center; background: #eee; padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
     <div class="card">
         <h2>🚀 投資比例試算</h2>
         <div class="input-group">
-            <label style="font-size: 12px;">預計投入總額 (TWD)</label>
+            <label style="font-size: 12px;">預計投入金額 (TWD)</label>
             <input type="number" id="budget" value="1000000" oninput="calculate()">
         </div>
         <table id="stockTable">
             <thead><tr><th>標的</th><th>價</th><th style="text-align:right;">股數</th></tr></thead>
             <tbody></tbody>
         </table>
-        <button class="buy-btn" onclick="handleTrade()">⚡ 執行模擬下單</button>
-        <div id="debug">初始化中...</div>
+        <button class="buy-btn" onclick="handleTrade()">⚡ 確認分配並執行模擬下單</button>
+        <div id="debug">等待載入...</div>
     </div>
 
     <script>
         let stocks = [];
-        // ⚠️ 每次啟動 ngrok 後請務必更新此處網址
+        // 修正點：確保網址最後有 /order，且沒有多餘空格
         const NGROK_URL = "https://hemic-lakeshia-unmaintained.ngrok-free.dev/order";
 
         async function main() {
@@ -48,10 +46,10 @@
                 if (dataStr) {
                     const raw = JSON.parse(decodeURIComponent(dataStr));
                     stocks = raw.map(v => ({ id: v.i, price: v.p }));
-                    debug.innerText = "✅ 成功載入 " + stocks.length + " 支股票";
+                    debug.innerText = "✅ 數據載入成功";
                     calculate();
-                } else { debug.innerText = "❌ 找不到股票數據 (d)"; }
-            } catch (e) { debug.innerText = "❌ LIFF 錯誤: " + e.message; }
+                }
+            } catch (e) { debug.innerText = "❌ 錯誤: " + e.message; }
         }
 
         function calculate() {
@@ -59,38 +57,24 @@
             const tbody = document.querySelector('#stockTable tbody');
             tbody.innerHTML = "";
             if (stocks.length === 0) return;
-            const perBudget = budget / stocks.length;
+            const per = budget / stocks.length;
             stocks.forEach(s => {
-                const shares = Math.floor(perBudget / s.price);
-                tbody.innerHTML += `<tr><td><b>${s.id}</b></td><td>$${s.price}</td><td style="text-align:right;color:#1DB954;font-weight:bold;">${shares.toLocaleString()}</td></tr>`;
+                const qty = Math.floor(per / s.price);
+                tbody.innerHTML += `<tr><td><b>${s.id}</b></td><td>$${s.price}</td><td style="text-align:right;color:#1DB954;font-weight:bold;">${qty.toLocaleString()}</td></tr>`;
             });
         }
 
         async function handleTrade() {
             const debug = document.getElementById('debug');
-            debug.innerText = "🚀 正在傳送指令...";
+            debug.innerText = "🚀 指令傳送中...";
             try {
                 const res = await fetch(NGROK_URL, {
                     method: "POST",
-                    headers: { 
-                        "Content-Type": "application/json",
-                        "ngrok-skip-browser-warning": "69420" // 強制跳過 ngrok 警告頁
-                    },
-                    body: JSON.stringify({ 
-                        user: "Tim Hung", 
-                        orders: stocks,
-                        budget: document.getElementById('budget').value
-                    })
+                    headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+                    body: JSON.stringify({ user: "Tim Hung", orders: stocks, budget: document.getElementById('budget').value })
                 });
-                if (res.ok) { 
-                    alert("下單指令已成功傳送到電腦！"); 
-                    debug.innerText = "✅ 成功傳送至伺服器"; 
-                } else {
-                    debug.innerText = "❌ 伺服器錯誤: " + res.status;
-                }
-            } catch (e) { 
-                debug.innerText = "❌ 連線失敗 (Failed to fetch)。請確認 ngrok 是否開啟並已手動 Visit Site。"; 
-            }
+                if (res.ok) { alert("下單成功！請看電腦 VS Code"); debug.innerText = "✅ 已送達電腦"; }
+            } catch (e) { debug.innerText = "❌ 失敗: " + e.message; }
         }
         main();
     </script>
