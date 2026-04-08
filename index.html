@@ -63,4 +63,99 @@
                 // 調整介面文字
                 if (version && version !== 'init') {
                     document.getElementById('title').innerText = "策略再平衡調倉";
-                    document.getElementById('desc').
+                    document.getElementById('desc').innerText = "根據今日 order.xlsx 指令進行權重與部位調整。";
+                    document.getElementById('desc').className = "text-sm text-gray-500 mb-6 bg-green-50 p-3 rounded-lg border-l-4 border-green-200";
+                }
+
+                // 3. 監聽金額輸入
+                document.getElementById('totalAmount').addEventListener('input', calculateShares);
+
+                // 4. 監聽按鈕點擊
+                document.getElementById('execBtn').addEventListener('click', sendOrder);
+                
+            } catch (err) {
+                console.error("LIFF 初始化失敗", err);
+                document.getElementById('stockList').innerHTML = `<div class="text-red-500 text-center">載入失敗，請從 LINE 開啟</div>`;
+            }
+        }
+
+        function renderStockList() {
+            const listDiv = document.getElementById('stockList');
+            listDiv.innerHTML = stockData.map(item => `
+                <div class="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-gray-800">${item.i}</span>
+                        <span class="text-[10px] text-gray-400">均權分配標的</span>
+                    </div>
+                    <div class="text-right">
+                        <span id="share-${item.i}" class="text-blue-900 font-bold">--</span>
+                        <div id="detail-${item.i}" class="text-[10px] text-gray-400">等待輸入金額</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function calculateShares() {
+            const total = document.getElementById('totalAmount').value;
+            if (!total || stockData.length === 0) return;
+
+            const amountPerStock = total / stockData.length;
+            
+            stockData.forEach(item => {
+                const shareDisplay = document.getElementById(`share-${item.i}`);
+                const detailDisplay = document.getElementById(`detail-${item.i}`);
+                
+                // 如果有價格 (p > 0) 就計算股數，否則顯示分配金額
+                if (item.p && item.p > 0) {
+                    const shares = Math.floor(amountPerStock / item.p);
+                    shareDisplay.innerText = `${shares.toLocaleString()} 股`;
+                    detailDisplay.innerText = `參考價: $${item.p}`;
+                } else {
+                    shareDisplay.innerText = `$${Math.floor(amountPerStock).toLocaleString()}`;
+                    detailDisplay.innerText = `平均分配預算`;
+                }
+            });
+        }
+
+        async function sendOrder() {
+            const total = document.getElementById('totalAmount').value;
+            if (!total || total <= 0) {
+                alert("請輸入有效的投入總金額");
+                return;
+            }
+
+            const btn = document.getElementById('execBtn');
+            btn.disabled = true;
+            btn.innerText = "傳送中...";
+
+            try {
+                const typeText = (version === 'init') ? "【初始建倉】" : "【再平衡調倉】";
+                const amountPerStock = Math.floor(total / stockData.length);
+                
+                let orderDetail = stockData.map(item => `- ${item.i}: $${amountPerStock.toLocaleString()}`).join('\n');
+                
+                const message = `✅ 策略下單指令已確認\n------------------\n模式：${typeText}\n投入總額：$${parseInt(total).toLocaleString()}\n標的數量：${stockData.length} 檔\n平均分配：$${amountPerStock.toLocaleString()}/檔\n------------------\n${orderDetail}\n\n指令時間：${new Date().toLocaleString()}`;
+
+                if (liff.isInClient()) {
+                    await liff.sendMessages([{
+                        type: 'text',
+                        text: message
+                    }]);
+                    liff.closeWindow();
+                } else {
+                    console.log("不在 LINE 環境中，訂單內容：\n", message);
+                    alert("非 LINE 環境，請見 Console 紀錄");
+                    btn.disabled = false;
+                    btn.innerText = "確認並送出訂單";
+                }
+            } catch (err) {
+                alert("傳送失敗: " + err.message);
+                btn.disabled = false;
+                btn.innerText = "確認並送出訂單";
+            }
+        }
+
+        main();
+    </script>
+</body>
+</html>
