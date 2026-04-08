@@ -1,82 +1,90 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>投資試算面板</title>
+    <title>Tim Hung 量化下單系統</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <style>
-        body { font-family: sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
-        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
-        .input-group { background: #f0f2f5; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
-        input { width: 100%; border: none; background: transparent; font-size: 22px; font-weight: bold; color: #002D72; outline: none; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th { text-align: left; color: #999; font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; }
-        td { padding: 12px 8px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
-        .buy-btn { width: 100%; padding: 18px; background: #e63946; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; }
-        #debug { font-size: 11px; color: #666; margin-top: 15px; text-align: center; background: #eee; padding: 10px; border-radius: 8px; }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="card">
-        <h2>🚀 投資比例試算</h2>
-        <div class="input-group">
-            <label style="font-size: 12px;">預計投入金額 (TWD)</label>
-            <input type="number" id="budget" value="1000000" oninput="calculate()">
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
+        <h1 id="title" class="text-2xl font-bold text-gray-800 mb-2">策略初始化建倉</h1>
+        <p id="desc" class="text-sm text-gray-500 mb-6">請輸入預計投入的總金額，系統將自動均權分配標的。</p>
+
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">投入總金額 (TWD)</label>
+            <input type="number" id="totalAmount" placeholder="例如: 1000000" 
+                   class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none">
         </div>
-        <table id="stockTable">
-            <thead><tr><th>標的</th><th>價</th><th style="text-align:right;">股數</th></tr></thead>
-            <tbody></tbody>
-        </table>
-        <button class="buy-btn" onclick="handleTrade()">⚡ 確認分配並執行模擬下單</button>
-        <div id="debug">等待載入...</div>
+
+        <div id="stockList" class="space-y-3 mb-6">
+            </div>
+
+        <button id="execBtn" class="w-full bg-blue-900 text-white py-3 rounded-lg font-bold hover:bg-blue-800 transition">
+            確認並送出訂單
+        </button>
     </div>
 
     <script>
-        let stocks = [];
-        // 修正點：確保網址最後有 /order，且沒有多餘空格
-        const NGROK_URL = "https://hemic-lakeshia-unmaintained.ngrok-free.dev/order";
+        let stockData = [];
+        let version = "";
 
         async function main() {
-            const debug = document.getElementById('debug');
-            try {
-                await liff.init({ liffId: "2009650617-0XGQdM6J" });
-                const urlObj = new URL(window.location.href.replace('#/', '/'));
-                const dataStr = urlObj.searchParams.get('d');
-                if (dataStr) {
-                    const raw = JSON.parse(decodeURIComponent(dataStr));
-                    stocks = raw.map(v => ({ id: v.i, price: v.p }));
-                    debug.innerText = "✅ 數據載入成功";
-                    calculate();
-                }
-            } catch (e) { debug.innerText = "❌ 錯誤: " + e.message; }
+            // 1. 初始化 LIFF
+            await liff.init({ liffId: "YOUR_LIFF_ID" }); // 請替換成你的 LIFF ID
+
+            // 2. 解析 URL 參數
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawData = urlParams.get('d');
+            version = urlParams.get('v');
+
+            if (rawData) {
+                stockData = JSON.parse(decodeURIComponent(rawData));
+                renderStockList();
+            }
+
+            // 調整標題
+            if (version !== 'init') {
+                document.getElementById('title').innerText = "策略再平衡調倉";
+                document.getElementById('desc').innerText = "根據今日 order.xlsx 指令進行調整。";
+            }
+
+            // 3. 監聽金額輸入
+            document.getElementById('totalAmount').addEventListener('input', calculateShares);
+
+            // 4. 監聽按鈕點擊
+            document.getElementById('execBtn').addEventListener('click', sendOrder);
         }
 
-        function calculate() {
-            const budget = document.getElementById('budget').value || 0;
-            const tbody = document.querySelector('#stockTable tbody');
-            tbody.innerHTML = "";
-            if (stocks.length === 0) return;
-            const per = budget / stocks.length;
-            stocks.forEach(s => {
-                const qty = Math.floor(per / s.price);
-                tbody.innerHTML += `<tr><td><b>${s.id}</b></td><td>$${s.price}</td><td style="text-align:right;color:#1DB954;font-weight:bold;">${qty.toLocaleString()}</td></tr>`;
+        function renderStockList() {
+            const listDiv = document.getElementById('stockList');
+            listDiv.innerHTML = stockData.map(item => `
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <span class="font-bold text-gray-700">${item.i}</span>
+                    <span id="share-${item.i}" class="text-blue-600 font-medium">等待計算...</span>
+                </div>
+            `).join('');
+        }
+
+        function calculateShares() {
+            const total = document.getElementById('totalAmount').value;
+            if (!total || stockData.length === 0) return;
+
+            const amountPerStock = total / stockData.length;
+            
+            stockData.forEach(item => {
+                // 註：如果沒有即時價格，此處僅顯示分配金額，或提示預計股數
+                const shareDisplay = document.getElementById(`share-${item.i}`);
+                shareDisplay.innerText = `分配額: $${Math.floor(amountPerStock).toLocaleString()}`;
             });
         }
 
-        async function handleTrade() {
-            const debug = document.getElementById('debug');
-            debug.innerText = "🚀 指令傳送中...";
-            try {
-                const res = await fetch(NGROK_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
-                    body: JSON.stringify({ user: "Tim Hung", orders: stocks, budget: document.getElementById('budget').value })
-                });
-                if (res.ok) { alert("下單成功！請看電腦 VS Code"); debug.innerText = "✅ 已送達電腦"; }
-            } catch (e) { debug.innerText = "❌ 失敗: " + e.message; }
-        }
-        main();
-    </script>
-</body>
-</html>
+        async function sendOrder() {
+            const total = document.getElementById('totalAmount').value;
+            if (!total) {
+                alert("請輸入總金額");
+                return;
+            }
+
+            // 傳
