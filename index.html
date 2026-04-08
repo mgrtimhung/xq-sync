@@ -3,64 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>投資試算系統 V2</title>
+    <title>交割金額試算</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        input[type=range] { -webkit-appearance: none; background: transparent; }
-        input[type=range]::-webkit-slider-runnable-track {
-            background: rgba(255, 255, 255, 0.3); height: 12px; border-radius: 6px;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 30px; width: 30px; border-radius: 50%;
-            background: #ffffff; cursor: pointer; margin-top: -9px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-        }
-    </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
     <div class="max-w-md mx-auto bg-white rounded-[2.5rem] shadow-2xl p-6 border border-gray-100">
-        <h1 id="title" class="text-2xl font-black text-gray-800 mb-6">策略投資試算</h1>
+        <h1 class="text-2xl font-black text-gray-800 mb-2">指令交割試算</h1>
+        <p class="text-[10px] text-gray-400 mb-6 tracking-widest uppercase">Direct Execution Mode</p>
         
-        <div class="bg-gradient-to-br from-blue-700 to-blue-900 p-6 rounded-[2rem] mb-6 text-white shadow-xl">
+        <div class="bg-gradient-to-br from-gray-800 to-black p-6 rounded-[2rem] mb-6 text-white shadow-xl">
             <div class="flex justify-between items-center mb-2">
-                <span class="text-[10px] font-bold text-blue-200 uppercase tracking-widest">預計投入總金額</span>
-                <span class="text-[10px] bg-blue-600 px-2 py-0.5 rounded-full">最小單位 10 萬</span>
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">估計交割金額 (不含稅費)</span>
+                <span class="text-[10px] bg-green-600 px-2 py-0.5 rounded-full text-white">市場即時價</span>
             </div>
-            
-            <div class="text-center mb-6">
-                <span id="amountDisplay" class="text-4xl font-black font-mono tracking-tighter">1,000,000</span>
-                <span class="text-sm text-blue-300 ml-1">TWD</span>
-            </div>
-            
-            <input type="range" id="totalAmountSlider" 
-                   min="100000" max="10000000" step="100000" value="1000000" 
-                   class="w-full h-3 cursor-pointer">
-            
-            <div class="flex justify-between mt-3 text-[10px] text-blue-300 font-bold">
-                <span>10 萬</span>
-                <span>500 萬</span>
-                <span>1000 萬</span>
+            <div class="text-center py-2">
+                <span id="totalDisplay" class="text-4xl font-black font-mono tracking-tighter">0</span>
+                <span class="text-sm text-gray-400 ml-1">TWD</span>
             </div>
         </div>
 
         <div class="flex justify-between text-[10px] font-bold text-gray-400 px-2 mb-3 uppercase tracking-widest">
             <span class="w-1/4">標的</span>
-            <span class="w-1/4 text-center">漲停價</span>
-            <span class="w-1/4 text-center">每檔分配</span>
-            <span class="w-1/4 text-right">預計股數</span>
+            <span class="w-1/4 text-center">當前市價</span>
+            <span class="w-1/4 text-center">指令股數</span>
+            <span class="w-1/4 text-right">小計金額</span>
         </div>
 
-        <div id="stockList" class="space-y-1 mb-8 max-h-[35vh] overflow-y-auto pr-1">
+        <div id="stockList" class="space-y-1 mb-8 max-h-[40vh] overflow-y-auto pr-1">
             </div>
 
         <button id="execBtn" class="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">
-            確認指令並送出
+            確認並送出今日訂單
         </button>
         
-        <div class="flex justify-between items-center mt-6 px-2">
-            <span class="text-[9px] text-gray-300 tracking-widest uppercase">Tim Hung Quant</span>
-            <span class="text-[9px] text-blue-400 font-bold bg-blue-50 px-2 py-0.5 rounded">V2.0 - SLIDER版</span>
+        <div class="text-center mt-6">
+            <span class="text-[9px] text-gray-300 tracking-[0.4em] uppercase">Tim Hung Trading System</span>
         </div>
     </div>
 
@@ -72,46 +50,49 @@
             const raw = params.get('d');
             if (raw) {
                 stockData = JSON.parse(decodeURIComponent(raw));
-                renderList();
+                calculateAndRender();
             }
-            const slider = document.getElementById('totalAmountSlider');
-            slider.addEventListener('input', function() {
-                document.getElementById('amountDisplay').innerText = parseInt(this.value).toLocaleString();
-                renderList();
-            });
             document.getElementById('execBtn').addEventListener('click', sendOrder);
         }
 
-        function renderList() {
-            const total = document.getElementById('totalAmountSlider').value;
-            const per = stockData.length > 0 ? Math.floor(total / stockData.length) : 0;
+        function calculateAndRender() {
+            let total = 0;
             const listDiv = document.getElementById('stockList');
+            
             listDiv.innerHTML = stockData.map(item => {
-                const shares = (item.p > 0) ? Math.floor(per / item.p) : 0;
+                const subtotal = Math.floor(item.s * item.p); // 股數 * 市價
+                total += subtotal;
+                
                 return `
                 <div class="flex justify-between items-center py-4 border-b border-gray-50">
                     <span class="font-black w-1/4 text-gray-800 text-sm">${item.i}</span>
                     <span class="text-gray-400 w-1/4 text-center text-xs font-mono">$${item.p}</span>
-                    <span class="text-blue-600 w-1/4 text-center text-xs font-bold">$${per.toLocaleString()}</span>
-                    <span class="font-mono text-green-600 w-1/4 text-right font-black text-sm">${shares.toLocaleString()}</span>
+                    <span class="text-gray-600 w-1/4 text-center text-xs font-bold">${item.s.toLocaleString()} 股</span>
+                    <span class="font-mono text-blue-600 w-1/4 text-right font-black text-sm">$${subtotal.toLocaleString()}</span>
                 </div>`;
             }).join('');
+            
+            document.getElementById('totalDisplay').innerText = total.toLocaleString();
         }
 
         async function sendOrder() {
-            const total = document.getElementById('totalAmountSlider').value;
             const ngrokUrl = "https://hemic-lakeshia-unmaintained.ngrok-free.dev/order";
             try {
                 const res = await fetch(ngrokUrl, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({total: total, stocks: stockData})
+                    body: JSON.stringify({
+                        user: "Tim Hung",
+                        execution_time: new Date().toLocaleString(),
+                        total_settlement: document.getElementById('totalDisplay').innerText,
+                        orders: stockData
+                    })
                 });
                 if (res.ok) {
-                    liff.sendMessages([{type: 'text', text: `🚀 下單指令發送成功 (總額 $${parseInt(total).toLocaleString()})`}]);
+                    liff.sendMessages([{type: 'text', text: `🚀 今日調倉已執行\n估計交割金額：$${document.getElementById('totalDisplay').innerText}`}]);
                     liff.closeWindow();
                 }
-            } catch (e) { alert("後端伺服器斷線"); }
+            } catch (e) { alert("連線失敗，請檢查 ngrok"); }
         }
         main();
     </script>
