@@ -6,15 +6,47 @@
     <title>投資比例試算</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定義拉桿外觀 */
+        input[type=range]::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.2);
+            height: 8px;
+            border-radius: 4px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4">
     <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6">
-        <h1 id="title" class="text-xl font-bold mb-4 flex items-center">🚀 投資比例試算</h1>
+        <h1 id="title" class="text-xl font-bold mb-4 flex items-center text-gray-800">🚀 投資比例試算</h1>
         
-        <div class="bg-blue-900 p-5 rounded-2xl mb-6 shadow-inner">
-            <label class="block text-xs font-bold text-blue-200 mb-1 uppercase tracking-widest">預計投入總金額 (TWD)</label>
-            <input type="number" id="totalAmount" value="1000000" 
-                   class="w-full bg-transparent text-3xl font-bold outline-none text-white border-b-2 border-blue-700 focus:border-blue-400 transition-all">
+        <div class="bg-blue-900 p-6 rounded-3xl mb-6 shadow-2xl">
+            <div class="flex justify-between items-end mb-4">
+                <label class="block text-xs font-bold text-blue-300 uppercase tracking-widest">預計投入總金額</label>
+                <div class="text-white text-3xl font-black font-mono">
+                    <span id="amountDisplay">1,000,000</span>
+                    <span class="text-sm font-normal text-blue-300 ml-1">TWD</span>
+                </div>
+            </div>
+            
+            <input type="range" id="totalAmountSlider" 
+                   min="100000" max="10000000" step="100000" value="1000000" 
+                   class="w-full h-2 bg-blue-700 rounded-lg appearance-none cursor-pointer accent-white transition-all">
+            
+            <div class="flex justify-between mt-2 text-[10px] text-blue-400 font-bold">
+                <span>10 萬</span>
+                <span>500 萬</span>
+                <span>1,000 萬</span>
+            </div>
         </div>
 
         <div class="flex justify-between text-[10px] font-bold text-gray-400 px-2 mb-2 uppercase tracking-tighter">
@@ -24,14 +56,14 @@
             <span class="w-1/4 text-right">預計股數</span>
         </div>
 
-        <div id="stockList" class="space-y-1 mb-8">
+        <div id="stockList" class="space-y-1 mb-8 max-h-[40vh] overflow-y-auto pr-1">
             </div>
 
-        <button id="execBtn" class="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-all hover:bg-gray-800">
+        <button id="execBtn" class="w-full bg-black text-white py-5 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all hover:bg-gray-800">
             確認並送出訂單
         </button>
         
-        <p class="text-center text-[10px] text-gray-300 mt-4 tracking-widest">TIM HUNG QUANTITATIVE SYSTEM</p>
+        <p class="text-center text-[10px] text-gray-300 mt-4 tracking-[0.3em]">TIM HUNG QUANTITATIVE SYSTEM</p>
     </div>
 
     <script>
@@ -48,35 +80,38 @@
                 renderList();
             }
 
-            // 監聽輸入與按鈕
-            document.getElementById('totalAmount').addEventListener('input', renderList);
+            // 監聽拉桿變動
+            const slider = document.getElementById('totalAmountSlider');
+            slider.addEventListener('input', () => {
+                // 更新上方大數字顯示
+                const val = parseInt(slider.value);
+                document.getElementById('amountDisplay').innerText = val.toLocaleString();
+                renderList();
+            });
+
             document.getElementById('execBtn').addEventListener('click', sendOrder);
         }
 
         function renderList() {
-            const total = document.getElementById('totalAmount').value || 0;
+            const total = document.getElementById('totalAmountSlider').value;
             const count = stockData.length;
-            
-            // 💎 計算每一檔分配到的金額 💎
             const perAmount = count > 0 ? Math.floor(total / count) : 0;
             
             const listDiv = document.getElementById('stockList');
             listDiv.innerHTML = stockData.map(item => {
-                // 計算預計股數 (如果價格 > 0)
                 const shares = (item.p > 0) ? Math.floor(perAmount / item.p) : 0;
-                
                 return `
-                <div class="flex justify-between items-center py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors px-1">
+                <div class="flex justify-between items-center py-4 border-b border-gray-50 px-1 hover:bg-gray-50 transition-colors">
                     <span class="font-bold w-1/4 text-gray-800 text-sm">${item.i}</span>
-                    <span class="text-gray-400 w-1/4 text-center text-sm">$${item.p}</span>
-                    <span class="text-blue-600 w-1/4 text-center text-sm font-medium">$${perAmount.toLocaleString()}</span>
-                    <span class="font-mono text-green-600 w-1/4 text-right font-bold text-sm">${shares.toLocaleString()}</span>
+                    <span class="text-gray-400 w-1/4 text-center text-sm font-mono">$${item.p}</span>
+                    <span class="text-blue-600 w-1/4 text-center text-sm font-bold font-mono">$${perAmount.toLocaleString()}</span>
+                    <span class="font-mono text-green-600 w-1/4 text-right font-black text-sm">${shares.toLocaleString()}</span>
                 </div>`;
             }).join('');
         }
 
         async function sendOrder() {
-            const total = document.getElementById('totalAmount').value;
+            const total = document.getElementById('totalAmountSlider').value;
             const ngrokUrl = "https://hemic-lakeshia-unmaintained.ngrok-free.dev/order";
             
             try {
@@ -94,12 +129,12 @@
                 if (res.ok) {
                     liff.sendMessages([{
                         type: 'text', 
-                        text: `✅ 均權下單已確認\n總額：$${parseInt(total).toLocaleString()}\n每檔分配：$${Math.floor(total / stockData.length).toLocaleString()}\n標的數：${stockData.length} 檔`
+                        text: `🚀 均權下單已發送！\n總額：$${parseInt(total).toLocaleString()}\n每檔分配：$${Math.floor(total / stockData.length).toLocaleString()}\n標的：${stockData.length} 檔`
                     }]);
                     liff.closeWindow();
                 }
             } catch (e) {
-                alert("連線失敗，請檢查後端伺服器 (ngrok) 是否啟動。");
+                alert("後端伺服器未連線 (ngrok)");
             }
         }
 
