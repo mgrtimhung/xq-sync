@@ -3,92 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>投資比例試算</title>
+    <title>Tim Hung 投資試算系統</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 自定義拉桿外觀 */
+        /* 強化拉桿視覺效果 */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-runnable-track {
             background: rgba(255, 255, 255, 0.2);
-            height: 8px;
-            border-radius: 4px;
+            height: 10px;
+            border-radius: 5px;
         }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            height: 24px;
-            width: 24px;
+            height: 28px;
+            width: 28px;
             border-radius: 50%;
             background: #ffffff;
             cursor: pointer;
-            margin-top: -8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            margin-top: -9px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
-    <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6">
-        <h1 id="title" class="text-xl font-bold mb-4 flex items-center text-gray-800">🚀 投資比例試算</h1>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-6">
+        <h1 id="title" class="text-2xl font-black mb-1 text-gray-800">策略初始化建倉</h1>
+        <p id="desc" class="text-[10px] text-gray-400 mb-6 tracking-widest uppercase">Initial Position Setup</p>
         
-        <div class="bg-blue-900 p-6 rounded-3xl mb-6 shadow-2xl">
-            <div class="flex justify-between items-end mb-4">
-                <label class="block text-xs font-bold text-blue-300 uppercase tracking-widest">預計投入總金額</label>
-                <div class="text-white text-3xl font-black font-mono">
-                    <span id="amountDisplay">1,000,000</span>
-                    <span class="text-sm font-normal text-blue-300 ml-1">TWD</span>
-                </div>
+        <div class="bg-blue-900 p-6 rounded-[2rem] mb-6 shadow-inner text-white">
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-xs font-bold text-blue-300">預計投入總金額</span>
+                <span class="bg-blue-800 px-2 py-1 rounded text-[10px] text-blue-200">最小單位 10 萬</span>
+            </div>
+            
+            <div class="text-center mb-6">
+                <span id="amountDisplay" class="text-4xl font-black font-mono">1,000,000</span>
+                <span class="text-sm text-blue-300 ml-1">TWD</span>
             </div>
             
             <input type="range" id="totalAmountSlider" 
                    min="100000" max="10000000" step="100000" value="1000000" 
-                   class="w-full h-2 bg-blue-700 rounded-lg appearance-none cursor-pointer accent-white transition-all">
+                   class="w-full h-2 cursor-pointer accent-white">
             
-            <div class="flex justify-between mt-2 text-[10px] text-blue-400 font-bold">
-                <span>10 萬</span>
-                <span>500 萬</span>
-                <span>1,000 萬</span>
+            <div class="flex justify-between mt-3 text-[10px] text-blue-400 font-bold px-1">
+                <span>10萬</span>
+                <span>500萬</span>
+                <span>1000萬</span>
             </div>
         </div>
 
-        <div class="flex justify-between text-[10px] font-bold text-gray-400 px-2 mb-2 uppercase tracking-tighter">
-            <span class="w-1/4">標的</span>
-            <span class="w-1/4 text-center">漲停價</span>
-            <span class="w-1/4 text-center">每檔分配</span>
+        <div class="flex justify-between text-[10px] font-bold text-gray-400 px-2 mb-3 uppercase tracking-tighter">
+            <span class="w-1/4">標的代號</span>
+            <span class="w-1/4 text-center">漲停參考價</span>
+            <span class="w-1/4 text-center text-blue-500">每檔分配</span>
             <span class="w-1/4 text-right">預計股數</span>
         </div>
 
-        <div id="stockList" class="space-y-1 mb-8 max-h-[40vh] overflow-y-auto pr-1">
+        <div id="stockList" class="space-y-1 mb-8 max-h-[35vh] overflow-y-auto pr-1">
             </div>
 
-        <button id="execBtn" class="w-full bg-black text-white py-5 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all hover:bg-gray-800">
-            確認並送出訂單
+        <button id="execBtn" class="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all hover:bg-blue-700">
+            確認並送出訂單指令
         </button>
         
-        <p class="text-center text-[10px] text-gray-300 mt-4 tracking-[0.3em]">TIM HUNG QUANTITATIVE SYSTEM</p>
+        <div class="text-center mt-6">
+            <p class="text-[10px] text-gray-300 tracking-[0.4em]">TIM HUNG QUANT SYSTEM</p>
+        </div>
     </div>
 
     <script>
         let stockData = [];
+        let version = "";
 
         async function main() {
-            // 初始化 LIFF
+            // 1. 初始化 LIFF (請確保 ID 正確)
             await liff.init({ liffId: "2009650617-0XGQdM6J" });
             
+            // 2. 解析 URL 參數
             const params = new URLSearchParams(window.location.search);
             const raw = params.get('d');
+            version = params.get('v');
+
+            // 調整標題內容
+            if (version !== 'init') {
+                document.getElementById('title').innerText = "策略再平衡調倉";
+                document.getElementById('desc').innerText = "Portfolio Rebalancing";
+            }
+
             if (raw) {
                 stockData = JSON.parse(decodeURIComponent(raw));
                 renderList();
             }
 
-            // 監聽拉桿變動
+            // 3. 監聽拉桿滑動
             const slider = document.getElementById('totalAmountSlider');
-            slider.addEventListener('input', () => {
-                // 更新上方大數字顯示
-                const val = parseInt(slider.value);
+            slider.addEventListener('input', function() {
+                const val = parseInt(this.value);
                 document.getElementById('amountDisplay').innerText = val.toLocaleString();
-                renderList();
+                renderList(); // 即時重算下方表格
             });
 
+            // 4. 按鈕送出
             document.getElementById('execBtn').addEventListener('click', sendOrder);
         }
 
@@ -101,10 +117,10 @@
             listDiv.innerHTML = stockData.map(item => {
                 const shares = (item.p > 0) ? Math.floor(perAmount / item.p) : 0;
                 return `
-                <div class="flex justify-between items-center py-4 border-b border-gray-50 px-1 hover:bg-gray-50 transition-colors">
-                    <span class="font-bold w-1/4 text-gray-800 text-sm">${item.i}</span>
+                <div class="flex justify-between items-center py-4 border-b border-gray-50 px-1 hover:bg-gray-50 transition-all">
+                    <span class="font-black w-1/4 text-gray-800 text-sm">${item.i}</span>
                     <span class="text-gray-400 w-1/4 text-center text-sm font-mono">$${item.p}</span>
-                    <span class="text-blue-600 w-1/4 text-center text-sm font-bold font-mono">$${perAmount.toLocaleString()}</span>
+                    <span class="text-blue-600 w-1/4 text-center text-xs font-bold">$${perAmount.toLocaleString()}</span>
                     <span class="font-mono text-green-600 w-1/4 text-right font-black text-sm">${shares.toLocaleString()}</span>
                 </div>`;
             }).join('');
@@ -120,21 +136,23 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         user: "Tim Hung",
+                        type: version === 'init' ? 'INITIAL_SETUP' : 'REBALANCE',
                         total_investment: total,
-                        allocation_per_stock: Math.floor(total / stockData.length),
                         stocks: stockData
                     })
                 });
                 
                 if (res.ok) {
-                    liff.sendMessages([{
-                        type: 'text', 
-                        text: `🚀 均權下單已發送！\n總額：$${parseInt(total).toLocaleString()}\n每檔分配：$${Math.floor(total / stockData.length).toLocaleString()}\n標的：${stockData.length} 檔`
-                    }]);
-                    liff.closeWindow();
+                    const msg = `✅ 指令已發送至後端\n類型: ${version === 'init' ? '初始建倉' : '再平衡'}\n總預算: $${parseInt(total).toLocaleString()}\n標的數: ${stockData.length} 檔`;
+                    if (liff.isInClient()) {
+                        await liff.sendMessages([{ type: 'text', text: msg }]);
+                        liff.closeWindow();
+                    } else {
+                        alert(msg);
+                    }
                 }
             } catch (e) {
-                alert("後端伺服器未連線 (ngrok)");
+                alert("後端伺服器 (ngrok) 未連線，請檢查電腦端程式。");
             }
         }
 
