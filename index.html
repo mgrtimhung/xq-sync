@@ -3,96 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交割金額試算</title>
+    <title>Tim 量化執行系統</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { background: rgba(255, 255, 255, 0.2); height: 10px; border-radius: 5px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 26px; width: 26px; border-radius: 50%; background: #ffffff; cursor: pointer; margin-top: -8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
     <div class="max-w-md mx-auto bg-white rounded-[2.5rem] shadow-2xl p-6 border border-gray-100">
-        <h1 class="text-2xl font-black text-gray-800 mb-2">指令交割試算</h1>
-        <p class="text-[10px] text-gray-400 mb-6 tracking-widest uppercase">Direct Execution Mode</p>
+        <h1 id="pageTitle" class="text-2xl font-black text-gray-800 mb-1">投資指令執行</h1>
+        <p id="pageDesc" class="text-[10px] text-gray-400 mb-6 tracking-widest uppercase">Hybrid Execution Mode</p>
         
-        <div class="bg-gradient-to-br from-gray-800 to-black p-6 rounded-[2rem] mb-6 text-white shadow-xl">
+        <div id="initSection" class="hidden bg-blue-900 p-6 rounded-[2rem] mb-6 text-white shadow-xl">
             <div class="flex justify-between items-center mb-2">
-                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">估計交割金額 (不含稅費)</span>
-                <span class="text-[10px] bg-green-600 px-2 py-0.5 rounded-full text-white">市場即時價</span>
+                <span class="text-[10px] font-bold text-blue-300 uppercase">預計投入總預算</span>
+                <span class="text-[10px] bg-blue-700 px-2 py-0.5 rounded">最小單位 10 萬</span>
             </div>
             <div class="text-center py-2">
-                <span id="totalDisplay" class="text-4xl font-black font-mono tracking-tighter">0</span>
-                <span class="text-sm text-gray-400 ml-1">TWD</span>
+                <span id="sliderVal" class="text-4xl font-black font-mono">1,000,000</span>
+                <span class="text-sm text-blue-300 ml-1">TWD</span>
+            </div>
+            <input type="range" id="budgetSlider" min="100000" max="10000000" step="100000" value="1000000" class="w-full h-2 mt-4 cursor-pointer">
+        </div>
+
+        <div id="tradeSection" class="hidden bg-gray-900 p-6 rounded-[2rem] mb-6 text-white shadow-xl border-t-4 border-blue-500">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-[10px] font-bold text-gray-400 uppercase">估計總交割金額</span>
+                <span class="text-[10px] bg-green-600 px-2 py-0.5 rounded text-white">指令導向</span>
+            </div>
+            <div class="text-center py-2">
+                <span id="fixedTotal" class="text-4xl font-black font-mono">0</span>
+                <span class="text-sm text-gray-500 ml-1">TWD</span>
             </div>
         </div>
 
-        <div class="flex justify-between text-[10px] font-bold text-gray-400 px-2 mb-3 uppercase tracking-widest">
+        <div class="flex justify-between text-[10px] font-bold text-gray-400 px-2 mb-3 uppercase tracking-tighter">
             <span class="w-1/4">標的</span>
-            <span class="w-1/4 text-center">當前市價</span>
-            <span class="w-1/4 text-center">指令股數</span>
+            <span id="priceLabel" class="w-1/4 text-center">價格基準</span>
+            <span id="qtyLabel" class="w-1/4 text-center">分配股數</span>
             <span class="w-1/4 text-right">小計金額</span>
         </div>
 
-        <div id="stockList" class="space-y-1 mb-8 max-h-[40vh] overflow-y-auto pr-1">
-            </div>
+        <div id="stockList" class="space-y-1 mb-8 max-h-[40vh] overflow-y-auto pr-1"></div>
 
         <button id="execBtn" class="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">
-            確認並送出今日訂單
+            確認指令並發送
         </button>
-        
-        <div class="text-center mt-6">
-            <span class="text-[9px] text-gray-300 tracking-[0.4em] uppercase">Tim Hung Trading System</span>
-        </div>
     </div>
 
     <script>
         let stockData = [];
+        let mode = 'init'; // init or trade
+
         async function main() {
             await liff.init({ liffId: "2009650617-0XGQdM6J" });
             const params = new URLSearchParams(window.location.search);
+            mode = params.get('v') || 'init';
             const raw = params.get('d');
-            if (raw) {
-                stockData = JSON.parse(decodeURIComponent(raw));
-                calculateAndRender();
+            
+            if (raw) stockData = JSON.parse(decodeURIComponent(raw));
+
+            if (mode === 'init') {
+                document.getElementById('initSection').classList.remove('hidden');
+                document.getElementById('pageTitle').innerText = "策略初始建倉";
+                document.getElementById('priceLabel').innerText = "漲停參考價";
+                document.getElementById('budgetSlider').addEventListener('input', render);
+            } else {
+                document.getElementById('tradeSection').classList.remove('hidden');
+                document.getElementById('pageTitle').innerText = "今日調倉下單";
+                document.getElementById('priceLabel').innerText = "即時市價";
+                document.getElementById('qtyLabel').innerText = "指令股數";
             }
+            render();
             document.getElementById('execBtn').addEventListener('click', sendOrder);
         }
 
-        function calculateAndRender() {
-            let total = 0;
+        function render() {
             const listDiv = document.getElementById('stockList');
-            
-            listDiv.innerHTML = stockData.map(item => {
-                const subtotal = Math.floor(item.s * item.p); // 股數 * 市價
-                total += subtotal;
-                
-                return `
-                <div class="flex justify-between items-center py-4 border-b border-gray-50">
-                    <span class="font-black w-1/4 text-gray-800 text-sm">${item.i}</span>
-                    <span class="text-gray-400 w-1/4 text-center text-xs font-mono">$${item.p}</span>
-                    <span class="text-gray-600 w-1/4 text-center text-xs font-bold">${item.s.toLocaleString()} 股</span>
-                    <span class="font-mono text-blue-600 w-1/4 text-right font-black text-sm">$${subtotal.toLocaleString()}</span>
-                </div>`;
-            }).join('');
-            
-            document.getElementById('totalDisplay').innerText = total.toLocaleString();
+            let grandTotal = 0;
+
+            if (mode === 'init') {
+                const totalBudget = parseInt(document.getElementById('budgetSlider').value);
+                document.getElementById('sliderVal').innerText = totalBudget.toLocaleString();
+                const perStockBudget = stockData.length > 0 ? Math.floor(totalBudget / stockData.length) : 0;
+
+                listDiv.innerHTML = stockData.map(item => {
+                    const shares = item.p > 0 ? Math.floor(perStockBudget / item.p) : 0;
+                    const subtotal = shares * item.p;
+                    grandTotal += subtotal;
+                    return rowTemplate(item.i, item.p, shares, subtotal);
+                }).join('');
+            } else {
+                listDiv.innerHTML = stockData.map(item => {
+                    const subtotal = Math.floor(item.s * item.p);
+                    grandTotal += subtotal;
+                    return rowTemplate(item.i, item.p, item.s, subtotal);
+                }).join('');
+                document.getElementById('fixedTotal').innerText = grandTotal.toLocaleString();
+            }
+        }
+
+        function rowTemplate(code, price, qty, sub) {
+            return `
+            <div class="flex justify-between items-center py-4 border-b border-gray-50">
+                <span class="font-black w-1/4 text-gray-800 text-sm">${code}</span>
+                <span class="text-gray-400 w-1/4 text-center text-xs font-mono">$${price}</span>
+                <span class="text-blue-600 w-1/4 text-center text-xs font-bold">${qty.toLocaleString()}</span>
+                <span class="font-mono text-gray-900 w-1/4 text-right font-black text-sm">$${sub.toLocaleString()}</span>
+            </div>`;
         }
 
         async function sendOrder() {
+            const total = mode === 'init' ? document.getElementById('budgetSlider').value : document.getElementById('fixedTotal').innerText;
             const ngrokUrl = "https://hemic-lakeshia-unmaintained.ngrok-free.dev/order";
             try {
                 const res = await fetch(ngrokUrl, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        user: "Tim Hung",
-                        execution_time: new Date().toLocaleString(),
-                        total_settlement: document.getElementById('totalDisplay').innerText,
-                        orders: stockData
-                    })
+                    body: JSON.stringify({ mode: mode, total: total, stocks: stockData })
                 });
                 if (res.ok) {
-                    liff.sendMessages([{type: 'text', text: `🚀 今日調倉已執行\n估計交割金額：$${document.getElementById('totalDisplay').innerText}`}]);
+                    liff.sendMessages([{type: 'text', text: `🚀 ${mode==='init'?'建倉':'調倉'}指令已發送\n金額：$${total.toLocaleString()}`}]);
                     liff.closeWindow();
                 }
-            } catch (e) { alert("連線失敗，請檢查 ngrok"); }
+            } catch (e) { alert("ngrok 未啟動"); }
         }
         main();
     </script>
