@@ -3,58 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>量化交易執行助手</title>
+    <title>量化交易指令終端</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        :root { --primary: #1DB954; --dark: #002D72; --danger: #FF4B4B; --blue: #4B7BFF; }
-        body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; color: #333; }
+        :root { --primary: #1DB954; --dark: #002D72; --danger: #FF4B4B; --blue: #4B7BFF; --gray: #f4f4f4; }
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
         .card { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        
-        /* 設定面板樣式 */
-        .settings-btn { background: none; border: 1px solid #ccc; border-radius: 20px; padding: 5px 12px; font-size: 12px; float: right; }
+        .settings-btn { background: none; border: 1px solid #ccc; border-radius: 20px; padding: 5px 12px; font-size: 12px; float: right; cursor: pointer; }
         .settings-panel { display: none; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
-        .settings-panel input { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        
-        /* 下單控制區 */
+        .settings-panel input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         h2 { font-size: 18px; color: var(--dark); margin: 0 0 10px 0; }
         .input-group { display: flex; align-items: center; margin: 15px 0; background: #eef2f7; padding: 10px; border-radius: 8px; }
-        .input-group input { flex: 1; border: none; background: none; font-size: 20px; font-weight: bold; text-align: center; color: var(--dark); }
-        
-        /* 表格樣式 */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .input-group input { flex: 1; border: none; background: none; font-size: 20px; font-weight: bold; text-align: center; color: var(--dark); outline: none; }
+        table { width: 100%; border-collapse: collapse; }
         th { text-align: left; font-size: 12px; color: #888; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        td { padding: 10px 0; border-bottom: 1px solid #f9f9f9; }
+        td { padding: 12px 0; border-bottom: 1px solid #f9f9f9; }
         .stock-code { font-weight: bold; display: block; }
         .stock-price { font-size: 12px; color: #666; }
         .shares-val { font-weight: bold; color: var(--primary); text-align: right; }
-        
-        /* 執行按鈕 */
-        .exec-btn { width: 100%; padding: 15px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; color: white; cursor: pointer; }
+        .exec-btn { width: 100%; padding: 16px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; color: white; cursor: pointer; margin-top: 10px; }
         .btn-init { background: var(--primary); }
         .btn-trade { background: var(--dark); }
+        #certStatus { font-size: 12px; margin-left: 5px; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <button onclick="toggleSettings()" class="settings-btn">⚙️ 我的 API 設定</button>
+        <button onclick="toggleSettings()" class="settings-btn">⚙️ 設定我的 API</button>
         <h2>交易發射台</h2>
         
         <div id="settingsPanel" class="settings-panel">
-            <input type="text" id="apiKey" placeholder="Sinopac API Key">
-            <input type="password" id="apiSecret" placeholder="Sinopac Secret Key">
+            <p style="font-size: 12px; color: #888;">憑證與金鑰僅存於您的手機本地 localStorage</p>
+            <input type="text" id="apiKey" placeholder="API Key">
+            <input type="password" id="apiSecret" placeholder="Secret Key">
             <input type="text" id="personId" placeholder="身分證字號">
             <input type="password" id="caPass" placeholder="憑證密碼">
-            <button onclick="saveSettings()" style="width:100%; padding:8px; background:var(--dark); color:white; border:none; border-radius:4px; margin-top:5px;">儲存於本機</button>
+            <div style="margin: 10px 0;">
+                <label style="font-size: 13px;">選取憑證 (.pfx): </label>
+                <input type="file" id="certFile" accept=".pfx" onchange="handleFileSelect(this)" style="font-size: 12px; border:none; padding:0;">
+                <span id="certStatus"></span>
+            </div>
+            <button onclick="saveSettings()" style="width:100%; padding:10px; background:var(--dark); color:white; border:none; border-radius:6px;">儲存設定</button>
         </div>
     </div>
 
     <div id="amountSection" class="card" style="display:none;">
-        <div style="font-size: 13px; color: #666;">擬投入總金額 (TWD)</div>
+        <div style="font-size: 13px; color: #666;">預計投入總金額 (TWD)</div>
         <div class="input-group">
-            <button onclick="adjustAmount(-50000)" style="border:none; font-size:20px;">-</button>
+            <button onclick="adjustAmount(-50000)" style="border:none; font-size:24px; padding:0 15px;">-</button>
             <input type="number" id="amountInput" value="500000" step="50000" oninput="calculateShares()">
-            <button onclick="adjustAmount(50000)" style="border:none; font-size:20px;">+</button>
+            <button onclick="adjustAmount(50000)" style="border:none; font-size:24px; padding:0 15px;">+</button>
         </div>
     </div>
 
@@ -67,8 +66,7 @@
                     <th style="text-align: right;">建議股數</th>
                 </tr>
             </thead>
-            <tbody id="stockList">
-                </tbody>
+            <tbody id="stockList"></tbody>
         </table>
     </div>
 
@@ -77,6 +75,8 @@
 <script>
     let mode = 'init'; 
     let stockData = [];
+    let certBase64 = ""; 
+    const BACKEND_URL = "https://你的後端網址.com"; // 💎 這裡改為你的 Bridge 網址
 
     async function initLIFF() {
         await liff.init({ liffId: "2009650617-0XGQdM6J" });
@@ -84,22 +84,26 @@
         parseUrlParams();
     }
 
-    // 1. 解析來自 LINE 卡片的資料
+    function handleFileSelect(input) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            certBase64 = e.target.result.split(',')[1];
+            document.getElementById('certStatus').innerText = "✅ 已讀取";
+            document.getElementById('certStatus').style.color = "green";
+        };
+        reader.readAsDataURL(file);
+    }
+
     function parseUrlParams() {
         const params = new URLSearchParams(window.location.search);
-        const raw = params.get('d'); // 代碼:價格:股數:動作
+        const raw = params.get('d'); 
         mode = params.get('v') || 'init';
-        
         if (!raw) return;
 
         stockData = raw.split(',').map(item => {
             const [i, p, s, a] = item.split(':');
-            return {
-                id: i,
-                price: parseFloat(p),
-                originalQty: parseInt(s),
-                action: a === 'B' ? '買進' : '賣出'
-            };
+            return { id: i, price: parseFloat(p), originalQty: parseInt(s), action: a === 'B' ? '買進' : '賣出' };
         });
 
         if (mode === 'init') {
@@ -112,55 +116,46 @@
         }
     }
 
-    // 2. 計算股數 (均權分配)
     function calculateShares() {
-        const totalAmount = parseFloat(document.getElementById('amountInput').value) || 0;
-        const perStockAmount = totalAmount / stockData.length;
-        
+        const total = parseFloat(document.getElementById('amountInput').value) || 0;
+        const perStock = total / stockData.length;
         const tbody = document.getElementById('stockList');
         tbody.innerHTML = '';
-
         stockData.forEach(s => {
-            const shares = Math.floor(perStockAmount / s.price);
-            const row = `<tr>
+            const shares = Math.floor(perStock / s.price);
+            s.finalQty = shares;
+            tbody.innerHTML += `<tr>
                 <td><span class="stock-code">${s.id}</span><span class="stock-price">$${s.price}</span></td>
                 <td style="text-align:center; color:var(--danger); font-weight:bold;">${s.action}</td>
                 <td class="shares-val">${shares.toLocaleString()} 股</td>
             </tr>`;
-            tbody.innerHTML += row;
-            s.calculatedQty = shares;
         });
     }
 
-    // 3. 渲染淨額下單列表 (v=trade 模式)
     function renderTradeList() {
         const tbody = document.getElementById('stockList');
         tbody.innerHTML = '';
         stockData.forEach(s => {
+            s.finalQty = s.originalQty;
             const color = s.action === '買進' ? 'var(--danger)' : 'var(--blue)';
             tbody.innerHTML += `<tr>
                 <td><span class="stock-code">${s.id}</span><span class="stock-price">現價 $${s.price}</span></td>
                 <td style="text-align:center; color:${color}; font-weight:bold;">${s.action}</td>
-                <td class="shares-val">${s.originalQty.toLocaleString()} 股</td>
+                <td class="shares-val">${s.finalQty.toLocaleString()} 股</td>
             </tr>`;
         });
     }
 
-    // 4. API 設定管理
-    function toggleSettings() {
-        const panel = document.getElementById('settingsPanel');
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    }
-
     function saveSettings() {
-        const config = {
+        const cfg = {
             k: document.getElementById('apiKey').value,
             s: document.getElementById('apiSecret').value,
             p: document.getElementById('personId').value,
-            c: document.getElementById('caPass').value
+            c: document.getElementById('caPass').value,
+            cert: certBase64 
         };
-        localStorage.setItem('sj_config', JSON.stringify(config));
-        alert("API 設定已儲存於您的手機本地。");
+        localStorage.setItem('sj_config', JSON.stringify(cfg));
+        alert("設定與憑證已儲存於本地。");
         toggleSettings();
     }
 
@@ -172,41 +167,47 @@
             document.getElementById('apiSecret').value = c.s;
             document.getElementById('personId').value = c.p;
             document.getElementById('caPass').value = c.c;
+            certBase64 = c.cert;
+            if(certBase64) document.getElementById('certStatus').innerText = "✅ 已有備份";
         }
     }
 
-    function adjustAmount(delta) {
-        const input = document.getElementById('amountInput');
-        input.value = Math.max(0, parseInt(input.value) + delta);
+    function toggleSettings() {
+        const p = document.getElementById('settingsPanel');
+        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function adjustAmount(d) {
+        const i = document.getElementById('amountInput');
+        i.value = Math.max(0, parseInt(i.value) + d);
         calculateShares();
     }
 
-    // 5. 執行下單 (發送到後端 Bridge)
     async function confirmAndExecute() {
-        const config = JSON.parse(localStorage.getItem('sj_config'));
-        if (!config || !config.k) return alert("請先設定您的 API 金鑰！");
+        const cfg = JSON.parse(localStorage.getItem('sj_config'));
+        if (!cfg || !cfg.cert) return alert("請先完成 API 與憑證設定！");
 
-        const orderList = stockData.map(s => ({
-            code: s.id,
-            qty: mode === 'init' ? s.calculatedQty : s.originalQty,
-            action: s.action
-        })).filter(o => o.qty > 0);
+        const orders = stockData.map(s => ({ code: s.id, qty: s.finalQty, action: s.action })).filter(o => o.qty > 0);
+        if (orders.length === 0) return alert("無有效下單筆數");
 
-        if (orderList.length === 0) return alert("沒有有效的下單筆數");
+        if (!confirm(`確定送出這 ${orders.length} 筆委託嗎？\n帳號：${cfg.p}`)) return;
 
-        if (!confirm(`確定要送出這 ${orderList.length} 筆委託嗎？\n(帳號: ${config.p})`)) return;
+        document.getElementById('mainExecBtn').innerText = "處理中...";
+        document.getElementById('mainExecBtn').disabled = true;
 
-        // 💎 此處呼叫你的後端 Bridge 💎
         try {
-            const res = await fetch('https://你的後端網址.com/place_order', {
+            const res = await fetch(`${BACKEND_URL}/place_order`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ config, orders: orderList })
+                body: JSON.stringify({ config: cfg, orders: orders })
             });
             const result = await res.json();
-            alert(result.message || "委託已送出");
+            alert(result.message || "指令處理完畢");
         } catch (e) {
-            alert("下單失敗，請檢查網路或後端服務設定。");
+            alert("下單失敗，請檢查伺服器連線。");
+        } finally {
+            document.getElementById('mainExecBtn').innerText = "確認並送出委託";
+            document.getElementById('mainExecBtn').disabled = false;
         }
     }
 
