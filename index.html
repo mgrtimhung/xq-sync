@@ -3,39 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>量化交易執行終端</title>
+    <title>量化交易發射台 V3</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        :root { --primary: #1DB954; --dark: #002D72; --danger: #FF4B4B; --blue: #4B7BFF; --bg: #f0f2f5; }
+        :root { --primary: #1DB954; --dark: #002D72; --danger: #FF4B4B; --bg: #f0f2f5; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; }
         .card { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 16px; }
-        .header-box { display: flex; justify-content: space-between; align-items: center; }
-        h2 { font-size: 18px; color: var(--dark); margin: 0; }
-        .settings-btn { background: #eee; border: none; border-radius: 20px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+        .header { display: flex; justify-content: space-between; align-items: center; }
         .settings-panel { display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
-        .settings-panel input { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
-        .amount-card { text-align: center; }
-        .input-group { display: flex; align-items: center; justify-content: center; margin: 15px 0; gap: 10px; }
-        .input-group input { width: 150px; border: none; background: #eef2f7; font-size: 24px; font-weight: bold; text-align: center; color: var(--dark); padding: 10px; border-radius: 8px; }
-        .circle-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--dark); color: white; font-size: 20px; }
+        .settings-panel input { width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .amount-input { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 15px 0; }
+        .amount-input input { width: 160px; font-size: 24px; font-weight: bold; text-align: center; border: none; background: #eef2f7; padding: 10px; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; font-size: 12px; color: #888; border-bottom: 1px solid #eee; padding: 8px 0; }
-        td { padding: 14px 0; border-bottom: 1px solid #f9f9f9; }
-        .stock-code { font-weight: bold; font-size: 16px; display: block; }
-        .stock-price { font-size: 12px; color: #777; }
-        .shares-val { font-weight: bold; color: var(--primary); text-align: right; font-size: 16px; }
-        .exec-btn { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 16px; font-weight: bold; color: white; cursor: pointer; transition: 0.3s; }
+        td { padding: 12px 0; border-bottom: 1px solid #f9f9f9; }
+        .shares-val { font-weight: bold; color: var(--primary); text-align: right; }
+        .exec-btn { width: 100%; padding: 18px; border-radius: 12px; border: none; font-size: 18px; font-weight: bold; color: white; cursor: pointer; background: var(--dark); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .exec-btn:disabled { background: #ccc; }
-        .btn-init { background: var(--primary); }
-        .btn-trade { background: var(--dark); }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <div class="header-box">
-            <h2>🚀 交易發射台</h2>
-            <button onclick="toggleSettings()" class="settings-btn">⚙️ API 設定</button>
+        <div class="header">
+            <h2 style="margin:0; color:var(--dark);">🚀 交易發射台</h2>
+            <button onclick="toggleSettings()" style="border:none; background:#eee; padding:6px 12px; border-radius:20px; font-size:12px;">⚙️ 設定</button>
         </div>
         
         <div id="settingsPanel" class="settings-panel">
@@ -43,33 +34,25 @@
             <input type="password" id="apiSecret" placeholder="Secret Key">
             <input type="text" id="personId" placeholder="身分證字號">
             <input type="password" id="caPass" placeholder="憑證密碼">
-            <div style="margin: 10px 0; padding: 10px; background: #fafafa; border-radius: 8px;">
-                <label style="font-size: 12px;">憑證 (.pfx):</label>
-                <input type="file" id="certFile" accept=".pfx" onchange="handleFileSelect(this)" style="font-size: 12px; border: none;">
-                <span id="certStatus" style="font-size: 12px;"></span>
+            <div style="font-size: 12px; margin: 10px 0;">
+                選取憑證 (.pfx): <input type="file" id="certFile" accept=".pfx" onchange="handleFileSelect(this)">
+                <div id="certStatus" style="color:green; margin-top:5px;"></div>
             </div>
-            <button onclick="saveSettings()" style="width:100%; padding:12px; background:var(--dark); color:white; border:none; border-radius:8px;">儲存設定</button>
+            <button onclick="saveSettings()" style="width:100%; padding:10px; background:var(--dark); color:white; border:none; border-radius:8px;">儲存於本地</button>
         </div>
     </div>
 
-    <div id="amountSection" class="card amount-card" style="display:none;">
-        <div style="font-size: 13px; color: #666;">擬投入總金額 (TWD)</div>
-        <div class="input-group">
-            <button onclick="adjustAmount(-50000)" class="circle-btn">-</button>
+    <div id="amountSection" class="card" style="display:none; text-align:center;">
+        <div style="font-size:13px; color:#666;">預計投入總金額 (TWD)</div>
+        <div class="amount-input">
+            <button onclick="adjustAmount(-50000)" style="width:40px; height:40px; border-radius:50%; border:none;">-</button>
             <input type="number" id="amountInput" value="500000" step="10000" oninput="calculateShares()">
-            <button onclick="adjustAmount(50000)" class="circle-btn">+</button>
+            <button onclick="adjustAmount(50000)" style="width:40px; height:40px; border-radius:50%; border:none;">+</button>
         </div>
     </div>
 
     <div class="card">
         <table>
-            <thead>
-                <tr>
-                    <th>標的 / 參考價</th>
-                    <th style="text-align: center;">動作</th>
-                    <th style="text-align: right;">執行股數</th>
-                </tr>
-            </thead>
             <tbody id="stockList"></tbody>
         </table>
     </div>
@@ -80,36 +63,21 @@
     const LIFF_ID = "2009650617-0XGQdM6J"; 
     const BACKEND_URL = "https://shioaji-bridge-timhung.onrender.com"; 
 
-    let mode = 'init'; 
     let stockData = [];
-    let certBase64 = ""; 
+    let certBase64 = "";
 
-    async function initLIFF() {
-        try {
-            await liff.init({ liffId: LIFF_ID });
-            loadSettings();
-            parseUrlParams();
-        } catch (err) { console.error(err); }
-    }
-
-    function parseUrlParams() {
+    async function init() {
+        await liff.init({ liffId: LIFF_ID });
+        loadSettings();
         const params = new URLSearchParams(window.location.search);
-        const raw = params.get('d'); 
-        mode = params.get('v') || 'init';
-        if (!raw) return;
-
-        stockData = raw.split(',').map(item => {
-            const [id, price, qty, action] = item.split(':');
-            return { id, price: parseFloat(price), originalQty: parseInt(qty), action: action === 'B' ? '買進' : '賣出' };
-        });
-
-        if (mode === 'init') {
+        const raw = params.get('d');
+        if (raw) {
+            stockData = raw.split(',').map(item => {
+                const [id, price, qty, action] = item.split(':');
+                return { id, price: parseFloat(price), qty: parseInt(qty), action: action === 'B' ? '買進' : '賣出' };
+            });
             document.getElementById('amountSection').style.display = 'block';
-            document.getElementById('mainExecBtn').classList.add('btn-init');
             calculateShares();
-        } else {
-            document.getElementById('mainExecBtn').classList.add('btn-trade');
-            renderTradeList();
         }
     }
 
@@ -119,38 +87,22 @@
         const tbody = document.getElementById('stockList');
         tbody.innerHTML = '';
         stockData.forEach(s => {
-            const shares = Math.floor(perStock / s.price);
-            s.finalQty = shares;
+            s.finalQty = Math.floor(perStock / s.price);
             tbody.innerHTML += `<tr>
-                <td><span class="stock-code">${s.id}</span><span class="stock-price">$${s.price}</span></td>
-                <td style="text-align:center; color:var(--danger); font-weight:bold;">買進</td>
-                <td class="shares-val">${shares.toLocaleString()} 股</td>
-            </tr>`;
-        });
-    }
-
-    function renderTradeList() {
-        const tbody = document.getElementById('stockList');
-        tbody.innerHTML = '';
-        stockData.forEach(s => {
-            s.finalQty = s.originalQty;
-            const color = s.action === '買進' ? 'var(--danger)' : 'var(--blue)';
-            tbody.innerHTML += `<tr>
-                <td><span class="stock-code">${s.id}</span><span class="stock-price">$${s.price}</span></td>
-                <td style="text-align:center; color:${color}; font-weight:bold;">${s.action}</td>
-                <td class="shares-val">${s.finalQty.toLocaleString()} 股</td>
+                <td><b>${s.id}</b><br><small>$${s.price}</small></td>
+                <td style="color:var(--danger); font-weight:bold; text-align:center;">買進</td>
+                <td class="shares-val">${s.finalQty} 股</td>
             </tr>`;
         });
     }
 
     function handleFileSelect(input) {
-        const file = input.files[0];
         const reader = new FileReader();
         reader.onload = (e) => {
             certBase64 = e.target.result.split(',')[1];
-            document.getElementById('certStatus').innerText = "✅ 已讀取";
+            document.getElementById('certStatus').innerText = "✅ 憑證已讀取";
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(input.files[0]);
     }
 
     function saveSettings() {
@@ -175,7 +127,7 @@
             document.getElementById('personId').value = c.p || '';
             document.getElementById('caPass').value = c.c || '';
             certBase64 = c.cert || "";
-            if(certBase64) document.getElementById('certStatus').innerText = "✅ 已有備份";
+            if(certBase64) document.getElementById('certStatus').innerText = "✅ 已有備份憑證";
         }
     }
 
@@ -190,44 +142,37 @@
         calculateShares();
     }
 
-    // ==========================================
-    // 💎 重點修改：傳送價格給後端以支援限價預約
-    // ==========================================
     async function confirmAndExecute() {
         const cfg = JSON.parse(localStorage.getItem('sj_config'));
         if (!cfg || !cfg.cert) return alert("請先完成 API 與憑證設定！");
 
-        const orderList = stockData.map(s => ({
-            code: s.id,
-            qty: s.finalQty,
-            action: s.action,
-            price: s.price // 🔥 傳送參考價（漲停價）
+        const orders = stockData.map(s => ({
+            code: s.id, qty: s.finalQty, action: s.action, price: s.price
         })).filter(o => o.qty > 0);
 
-        if (orderList.length === 0) return alert("無有效股數");
-        if (!confirm(`確定送出這 ${orderList.length} 筆委託嗎？`)) return;
+        if (!confirm(`確定下單嗎？這會直接動用您的資金！`)) return;
 
         const btn = document.getElementById('mainExecBtn');
         btn.disabled = true;
-        btn.innerText = "傳送中...";
+        btn.innerText = "🚀 指令傳送中...";
 
         try {
             const res = await fetch(`${BACKEND_URL}/place_order`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ config: cfg, orders: orderList })
+                body: JSON.stringify({ config: cfg, orders: orders })
             });
             const result = await res.json();
             alert(result.message);
         } catch (e) {
-            alert("下單失敗，請檢查網路。");
+            alert("連線失敗，請檢查 Render 狀態。");
         } finally {
             btn.disabled = false;
             btn.innerText = "確認並送出委託";
         }
     }
 
-    initLIFF();
+    init();
 </script>
 </body>
 </html>
