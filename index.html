@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交易發射台</title>
+    <title>量化交易發射台</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         :root { --primary: #1DB954; --dark: #002D72; --bg: #f0f2f5; }
@@ -52,8 +52,8 @@
 <button id="exec" class="btn btn-main" onclick="send()">確認金額並送出委託</button>
 
 <script>
-    const LIFF_ID = "2009650617-0XGQdM6J"; // 👈 請確認
-    const BACKEND_URL = "https://shioaji-bridge-timhung.onrender.com"; // 👈 請確認
+    const LIFF_ID = "2009650617-0XGQdM6J"; 
+    const BACKEND_URL = "https://shioaji-bridge-timhung.onrender.com"; 
 
     let data = [], certB64 = "";
 
@@ -82,6 +82,7 @@
 
     function calc() {
         const total = parseInt(document.getElementById('amt').value) || 0;
+        if (!data.length) return;
         const per = total / data.length;
         const tb = document.getElementById('list'); tb.innerHTML = '';
         data.forEach(s => {
@@ -97,23 +98,49 @@
 
     function load() {
         const saved = JSON.parse(localStorage.getItem('sj_cfg') || '{}');
-        document.getElementById('k').value = saved.k||''; document.getElementById('s').value = saved.s||''; document.getElementById('p').value = saved.p||''; document.getElementById('c').value = saved.c||''; certB64 = saved.cert||'';
+        document.getElementById('k').value = saved.k||''; 
+        document.getElementById('s').value = saved.s||''; 
+        document.getElementById('p').value = saved.p||''; 
+        document.getElementById('c').value = saved.c||''; 
+        certB64 = saved.cert||'';
         if(certB64) document.getElementById('fStat').innerText="✅ 已有備份憑證";
     }
 
     async function vLogin() {
-        const btn = document.getElementById('vL'); btn.innerText = "驗證中...";
+        const btn = document.getElementById('vL'); 
+        const k = document.getElementById('k').value;
+        const s = document.getElementById('s').value;
+        if(!k || !s) return alert("請填寫 Key");
+        btn.innerText = "驗證中...";
         try {
-            const res = await fetch(`${BACKEND_URL}/verify_login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({config:{k:document.getElementById('k').value, s:document.getElementById('s').value}}) });
+            const res = await fetch(`${BACKEND_URL}/verify_login`, { 
+                method:'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body:JSON.stringify({config:{k, s}}) 
+            });
             alert((await res.json()).message);
-        } catch(e) { alert("連線失敗"); } finally { btn.innerText = "1. 測登入"; }
+        } catch(e) { alert("連線失敗，請稍候重試"); } finally { btn.innerText = "1. 測登入"; }
     }
 
     async function vCert() {
-        const btn = document.getElementById('vC'); btn.innerText = "活化中...";
-        const cfg = { k:document.getElementById('k').value, s:document.getElementById('s').value, p:document.getElementById('p').value, c:document.getElementById('c').value, cert: certB64 };
+        const btn = document.getElementById('vC');
+        const cfg = { k:document.getElementById('k').value, s:document.getElementById('s').value, p:document.getElementById('personId').value, c:document.getElementById('caPass').value, cert: certB64 };
+        // 注意：這裡修正了抓取欄位 ID 的錯誤 (統一使用 k, s, p, c)
+        const currentCfg = {
+            k: document.getElementById('k').value,
+            s: document.getElementById('s').value,
+            p: document.getElementById('p').value,
+            c: document.getElementById('c').value,
+            cert: certB64
+        };
+        if(!currentCfg.cert) return alert("請先選取憑證檔案");
+        btn.innerText = "活化中...";
         try {
-            const res = await fetch(`${BACKEND_URL}/verify_cert`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({config:cfg}) });
+            const res = await fetch(`${BACKEND_URL}/verify_cert`, { 
+                method:'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body:JSON.stringify({config:currentCfg}) 
+            });
             alert((await res.json()).message);
         } catch(e) { alert("連線失敗"); } finally { btn.innerText = "2. 測憑證"; }
     }
@@ -124,7 +151,11 @@
         if(!confirm("確定送出委託？")) return;
         const btn = document.getElementById('exec'); btn.innerText = "發送中...";
         try {
-            const res = await fetch(`${BACKEND_URL}/place_order`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({config:cfg, orders}) });
+            const res = await fetch(`${BACKEND_URL}/place_order`, { 
+                method:'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body:JSON.stringify({config:cfg, orders}) 
+            });
             alert((await res.json()).message);
         } catch(e) { alert("連線失敗"); } finally { btn.innerText = "確認金額並送出委託"; }
     }
