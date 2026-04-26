@@ -6,7 +6,7 @@
     <title>交易發射台</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        :root { --primary: #1DB954; --bg: #f0f2f5; }
+        :root { --primary: #1DB954; --dark: #002D72; --bg: #f0f2f5; }
         body { font-family: sans-serif; background: var(--bg); padding: 15px; margin: 0; }
         .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
@@ -14,101 +14,138 @@
     </style>
 </head>
 <body>
-
 <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">🚀 交易發射台</h3>
         <button onclick="document.getElementById('setBox').style.display='block'">⚙️ 設定</button>
     </div>
     <div id="setBox" style="display:none; margin-top:10px;">
-        <input id="inK" placeholder="API Key"> 
-        <input id="inS" type="password" placeholder="Secret Key">
-        <input id="inP" placeholder="身分證"> 
-        <input id="inC" type="password" placeholder="憑證密碼">
-        <input type="file" onchange="loadF(this)">
+        <input id="k" placeholder="API Key">
+        <input id="s" type="password" placeholder="Secret Key">
+        <input id="p" placeholder="身分證">
+        <input id="c" type="password" placeholder="憑證密碼">
+        <input type="file" onchange="handleFile(this)">
         <div id="fStat" style="font-size:12px; color:green; margin:5px 0;"></div>
         <div style="display:flex; gap:10px;">
-            <button id="btnL" class="btn" style="background:#4B7BFF;" onclick="vL()">1. 測登入</button>
-            <button id="btnC" class="btn" style="background:#FF9800;" onclick="vC()">2. 測憑證</button>
+            <button id="btnL" class="btn" style="background:#4B7BFF;" onclick="vL()">1. 測試連線</button>
+            <button id="btnC" class="btn" style="background:#FF9800;" onclick="vC()">2. 正式活化 API</button>
         </div>
-        <button class="btn" style="background:#666;" onclick="save()">💾 儲存</button>
+        <button class="btn" style="background:#002D72;" onclick="save()">💾 綁定憑證與儲存設定</button>
     </div>
 </div>
-
 <div id="amtBox" class="card" style="display:none; text-align:center;">
     <div>擬投入總金額</div>
-    <input type="number" id="inAmt" value="500000" style="font-size:24px; text-align:center;" oninput="calc()">
+    <input type="number" id="amt" value="500000" style="font-size:24px; text-align:center;" oninput="calc()">
 </div>
-
 <div class="card"><table id="list" style="width:100%;"></table></div>
-<button id="exec" class="btn" style="background:var(--primary);" onclick="send()">確認並送出</button>
+<button id="exec" class="btn" style="background:var(--primary);" onclick="send()">確認並下單</button>
 
 <script>
-    // ⚠️ 請修改為您的正確網址
-    const LIFF_ID = "2009650617-0XGQdM6J"; 
-    const BACKEND = "https://shioaji-bridge-timhung.onrender.com"; 
-
+    const LIFF_ID = "2009650617-0XGQdM6J";
+    const BACKEND = "https://shioaji-bridge-timhung.onrender.com";
+    
     let stockData = [], certB64 = "";
 
     async function init() {
-        await liff.init({ liffId: LIFF_ID });
+        await liff.init({ liffId: LIFF_ID }); 
         load();
         const d = new URLSearchParams(window.location.search).get('d');
         if (d) {
             stockData = d.split(',').map(i => {
                 const [info, price] = i.split(':');
                 const [id, name] = info.split('_');
-                return { id, name, price: parseFloat(price), action: '買進' };
+                return { id, name, price: parseFloat(price) };
             });
-            document.getElementById('amtBox').style.display = 'block';
+            document.getElementById('amtBox').style.display = 'block'; 
             calc();
         }
     }
-
-    function loadF(input) {
+    
+    function handleFile(input) {
         const reader = new FileReader();
-        reader.onload = (e) => { certB64 = e.target.result.split(',')[1]; document.getElementById('fStat').innerText="✅ 憑證讀取成功"; };
+        reader.onload = (e) => { 
+            certB64 = e.target.result.split(',')[1]; 
+            document.getElementById('fStat').innerText="✅ 憑證讀取成功"; 
+        };
         reader.readAsDataURL(input.files[0]);
     }
-
+    
     function calc() {
-        const total = parseInt(document.getElementById('inAmt').value) || 0;
-        const per = total / stockData.length;
-        const tb = document.getElementById('list'); tb.innerHTML = '';
+        const total = parseInt(document.getElementById('amt').value) || 0;
+        const tb = document.getElementById('list'); 
+        tb.innerHTML = '';
+        if (!stockData.length) return;
         stockData.forEach(s => {
-            s.qty = Math.floor(per / s.price);
-            tb.innerHTML += `<tr><td><b>${s.id} ${s.name}</b><br><small>$${s.price}</small></td><td style="text-align:right;">${s.qty} 股</td></tr>`;
+            s.qty = Math.floor((total / stockData.length) / s.price);
+            tb.innerHTML += `<tr><td style="padding:10px 0; border-bottom:1px solid #eee;"><b>${s.id} ${s.name}</b><br><small>$${s.price}</small></td><td style="text-align:right;">${s.qty} 股</td></tr>`;
         });
     }
-
+    
     function save() {
-        const cfg = { k:document.getElementById('inK').value, s:document.getElementById('inS').value, p:document.getElementById('inP').value, c:document.getElementById('inC').value, cert: certB64 };
-        localStorage.setItem('sj_v4_cfg', JSON.stringify(cfg)); alert("✅ 儲存成功");
+        const cfg = { 
+            k: document.getElementById('k').value, 
+            s: document.getElementById('s').value, 
+            p: document.getElementById('p').value, 
+            c: document.getElementById('c').value, 
+            cert: certB64 
+        };
+        localStorage.setItem('sj_v4_cfg', JSON.stringify(cfg)); 
+        alert("✅ 設定已儲存");
     }
 
     function load() {
         const saved = JSON.parse(localStorage.getItem('sj_v4_cfg') || '{}');
-        document.getElementById('inK').value = saved.k||''; document.getElementById('inS').value = saved.s||''; document.getElementById('inP').value = saved.p||''; document.getElementById('inC').value = saved.c||''; certB64 = saved.cert||'';
+        document.getElementById('k').value = saved.k || ''; 
+        document.getElementById('s').value = saved.s || ''; 
+        document.getElementById('p').value = saved.p || ''; 
+        document.getElementById('c').value = saved.c || ''; 
+        certB64 = saved.cert || '';
         if(certB64) document.getElementById('fStat').innerText="✅ 已有備份憑證";
     }
-
+    
     async function vL() {
-        const config = { k: document.getElementById('inK').value, s: document.getElementById('inS').value };
-        const res = await fetch(`${BACKEND}/verify_login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({config}) });
-        alert((await res.json()).message);
+        const config = { k: document.getElementById('k').value, s: document.getElementById('s').value };
+        document.getElementById('btnL').innerText = "驗證中...";
+        try {
+            const res = await fetch(`${BACKEND}/verify_login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({config}) });
+            alert((await res.json()).message);
+        } catch(e) { 
+            alert("❌ 連線失敗：伺服器可能還在啟動"); 
+        } finally { 
+            document.getElementById('btnL').innerText = "1. 測試連線"; 
+        }
     }
 
     async function vC() {
-        const config = { k:document.getElementById('inK').value, s:document.getElementById('inS').value, p:document.getElementById('inP').value, c:document.getElementById('inC').value, cert: certB64 };
-        const res = await fetch(`${BACKEND}/verify_cert`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({config}) });
-        alert((await res.json()).message);
+        const config = { 
+            k: document.getElementById('k').value, 
+            s: document.getElementById('s').value, 
+            p: document.getElementById('p').value, 
+            c: document.getElementById('c').value, 
+            cert: certB64 
+        };
+        if(!certB64) return alert("請先選取憑證檔案！");
+        document.getElementById('btnC').innerText = "連線券商開通中...";
+        try {
+            const res = await fetch(`${BACKEND}/verify_cert`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({config}) });
+            alert((await res.json()).message);
+        } catch(e) { 
+            alert("❌ 連線失敗：請確保 Render 已改為 Python 3.11"); 
+        } finally { 
+            document.getElementById('btnC').innerText = "2. 正式活化 API"; 
+        }
     }
 
     async function send() {
         const config = JSON.parse(localStorage.getItem('sj_v4_cfg'));
-        const orders = stockData.map(s => ({ code:s.id, qty:s.qty, price:s.price, action:s.action }));
-        const res = await fetch(`${BACKEND}/place_order`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({config, orders}) });
-        alert((await res.json()).message);
+        const orders = stockData.map(s => ({ code: s.id, qty: s.qty, price: s.price, action: '買進' }));
+        if(!confirm("確定下單？")) return;
+        try {
+            const res = await fetch(`${BACKEND}/place_order`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({config, orders}) });
+            alert((await res.json()).message);
+        } catch(e) { 
+            alert("❌ 連線失敗"); 
+        }
     }
 
     init();
